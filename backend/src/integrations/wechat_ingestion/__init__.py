@@ -1,0 +1,2 @@
+"""WeChat ingestion integration namespace."""
+

@@ -1,0 +1,2 @@
+"""Novelty package."""
+

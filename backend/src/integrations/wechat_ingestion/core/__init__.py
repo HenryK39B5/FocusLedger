@@ -1,0 +1,2 @@
+"""WeChat ingestion core package."""
+

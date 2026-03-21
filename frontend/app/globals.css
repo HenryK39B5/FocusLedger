@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 8 13 25;
+  --fg: 242 245 252;
+  --panel: 15 22 39;
+  --line: 255 255 255;
+  --accent: 247 198 107;
+  --accent2: 114 140 255;
+  --muted: 160 172 196;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Noto Serif SC", "Songti SC", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: rgb(var(--bg));
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: rgb(var(--fg));
+  background:
+    radial-gradient(circle at top, rgba(247, 198, 107, 0.12), transparent 25%),
+    radial-gradient(circle at 80% 0%, rgba(114, 140, 255, 0.12), transparent 22%),
+    rgb(var(--bg));
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(247, 198, 107, 0.35);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+

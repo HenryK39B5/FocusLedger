@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: focusledger
+      POSTGRES_PASSWORD: focusledger
+      POSTGRES_DB: focusledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - focusledger_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://focusledger:focusledger@postgres:5432/focusledger
+      REDIS_URL: redis://redis:6379/0
+      ARTICLE_STORAGE_PATH: /app/data/articles
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend/data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+    env_file:
+      - ./.env
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  focusledger_pgdata:
