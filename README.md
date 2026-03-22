@@ -1,154 +1,166 @@
 # FocusLedger
 
-FocusLedger 是一个面向中文微信公众号信息流的本地研究工具。
+FocusLedger 是一个面向中文公众号信息流的本地研究与日报工具。
 
-当前阶段的目标很明确：
-- 管理公众号来源
-- 采集公众号历史文章
-- 对文章做结构化摘要和标签分析
-- 浏览、筛选、删除文章
-- 按指定日期生成日报
-- 通过 QClaw 在微信里直接请求某一天的日报
+它当前聚焦四件事：
+- 管理关注来源
+- 同步文章内容到本地知识库
+- 用 LLM 生成摘要和标签
+- 按指定日期生成日报，并支持通过 QClaw 在微信里调取日报
 
-## 当前能力
+## 当前阶段能做什么
 
-### 1. 公众号来源管理
-- 新增、编辑、删除公众号来源
-- 支持多级分组，格式如 `投研/宏观/中国`
-- 支持多标签
-- 来源和采集页分离：
-  - `/sources` 负责管理来源
-  - `/collect` 负责公众号主页解析、来源创建和文章同步
-
-### 2. 微信公众号采集
-- 采集流程参考并适配 [`yeximm/Access_wechat_article`](https://github.com/yeximm/Access_wechat_article)
-- 支持从公众号文章链接提取主页链接
-- 支持使用 Fiddler 抓取 `mp.weixin.qq.com/mp/profile_ext?...` token 链接
-- 支持按来源同步历史文章
-- 支持自定义同步页数和近几天范围
-- 支持重复文章去重
-
-### 3. 文章系统
-- 文章浏览页支持：
-  - 总文章数
-  - 关键词搜索
-  - 来源筛选
+- 公众号来源管理
+  - 新增、编辑、删除来源
+  - 多级分组
+  - 多标签
+- 文章同步
+  - 按来源同步历史内容
+  - 按页数和近几天范围控制同步
+  - 自动去重
+- 文章系统
+  - 搜索、筛选、排序、分页
   - 时间区间筛选
-  - 排序
-  - 分页
-  - 单篇删除
-  - 批量删除
-- 文章详情页支持：
-  - 原文链接
-  - 公众号信息
-  - LLM 摘要
-  - 正文展示
-  - 文章标签
+  - 单篇删除、批量删除
+  - 详情页查看摘要、正文、标签和原文链接
+- 日报系统
+  - 按日期生成日报
+  - 按来源或来源分组限制日报范围
+- QClaw 接入
+  - 在微信里向 QClaw 请求某一天的日报
 
-### 4. LLM 分析
-- 支持规则模式和 OpenAI-compatible 模式
-- 已适配 DeepSeek 这类 OpenAI 格式接口
-- 新采集文章会执行：
-  - 摘要生成
-  - 正文轻度排版
-  - 主题标签
-  - 实体标签
-  - 内容类型识别
+## 给组员的最快试用方式
 
-### 5. 日报系统
-- 支持按指定日期生成日报
-- 支持按来源或来源分组限制范围
-- 日报会综合：
-  - 来源分组
-  - 来源标签
-  - 文章摘要
-  - 文章标签
-- Web 页面入口：
-  - `/reports`
-- API：
-  - `GET /api/v1/reports/daily`
+如果只是想先把产品跑起来，不需要先装 Python、Node.js、PostgreSQL、Redis。
 
-### 6. QClaw 接入
-- 已实现通过 QClaw 在微信里请求日报
-- 当前只开放一项能力：
-  - 获取某个日期的日报
-- 已新增 QClaw 专用接口：
-  - `GET /api/v1/integrations/qclaw/daily-report`
-- 已提供本地 skill：
-  - [qclaw-skills/focusledger-daily-report](E:/Desktop/FocusLedger/qclaw-skills/focusledger-daily-report)
+推荐最小依赖：
+- Git
+- Docker Desktop
 
-## 技术栈
+### 1. 克隆项目
 
-### 前端
-- Next.js 15
-- TypeScript
-- Tailwind CSS
-
-### 后端
-- FastAPI
-- SQLAlchemy 2
-- Alembic
-- PostgreSQL
-- Redis
-
-### LLM
-- Rule-based fallback
-- OpenAI-compatible API
-
-## 目录结构
-
-```text
-frontend/                     Next.js 前端
-backend/                      FastAPI 后端
-backend/src/api/routes/       API 路由
-backend/src/services/         业务服务
-backend/src/integrations/     微信采集适配层
-qclaw-skills/                 QClaw 技能
-docker-compose.yml            本地依赖启动
-.env.example                  环境变量示例
+```powershell
+git clone <你的-github-仓库地址>
+cd FocusLedger
 ```
 
-## 环境准备
+### 2. 启动整个项目
 
-建议环境：
-- Windows
-- Docker Desktop
-- Python 3.11+
-- Node.js 20+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\quick-start.ps1
+```
 
-推荐使用 Docker 启动依赖：
-- PostgreSQL
-- Redis
+这个脚本会做两件事：
+- 如果没有 `.env`，自动从 `.env.example` 复制一份
+- 直接用 Docker 启动 PostgreSQL、Redis、后端、前端
+
+### 3. 打开页面
+
+- 前端首页: [http://localhost:3000](http://localhost:3000)
+- 来源管理: [http://localhost:3000/sources](http://localhost:3000/sources)
+- 同步页: [http://localhost:3000/collect](http://localhost:3000/collect)
+- 文章浏览: [http://localhost:3000/articles](http://localhost:3000/articles)
+- 日报页: [http://localhost:3000/reports](http://localhost:3000/reports)
+
+### 4. 检查服务状态
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\status.ps1
+```
+
+### 5. 查看前后端日志
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\logs.ps1
+```
+
+### 6. 停止项目
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\quick-stop.ps1
+```
+
+## 页面说明
+
+- `/sources`
+  - 管理来源、分组、标签
+- `/collect`
+  - 配置来源、执行同步
+- `/articles`
+  - 浏览和筛选文章
+- `/reports`
+  - 生成日报
+- `/status`
+  - 查看系统状态
+
+## 团队协作建议
+
+如果你们是多人协作，建议按这个方式使用仓库：
+
+- `main`
+  - 始终保持可运行
+- 每个开发者从 `main` 拉分支开发
+- 完成后再合并回 `main`
+
+建议的工作流：
+
+```powershell
+git checkout main
+git pull
+git checkout -b feature/your-feature-name
+```
 
 ## 环境变量
 
-先复制环境变量模板：
+项目根目录有一份模板：
+- `.env.example`
 
-```powershell
-copy .env.example .env
-```
+第一次启动时，`scripts/quick-start.ps1` 会自动生成 `.env`。
 
-最少需要确认这些配置：
+默认情况下，即使不配置 LLM Key，系统也能运行，只是会退化到规则模式。
+
+### 常用配置
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
+APP_NAME=FocusLedger
+ENVIRONMENT=development
+API_PREFIX=/api/v1
+
 DATABASE_URL=postgresql+psycopg://focusledger:focusledger@localhost:5432/focusledger
 REDIS_URL=redis://localhost:6379/0
 
-LLM_PROVIDER=openai_compatible
-OPENAI_API_KEY=your_key
-OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_MODEL=deepseek-chat
+AUTO_CREATE_SCHEMA=true
+ALLOW_CORS_ORIGINS=http://localhost:3000
+ARTICLE_STORAGE_PATH=backend/data/articles
+
+LLM_PROVIDER=rule
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
 
 QCLAW_INTEGRATION_KEY=
 ```
 
-说明：
-- 不配 `OPENAI_API_KEY` 也能运行，但会退化为规则模式
-- 如果启用 `QCLAW_INTEGRATION_KEY`，QClaw 调用日报接口时也需要带同样的 key
+### DeepSeek 配置示例
 
-## 本地启动
+如果你要启用基于 OpenAI 格式的模型接口，可以这样配置：
+
+```env
+LLM_PROVIDER=openai_compatible
+OPENAI_API_KEY=你的key
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+OPENAI_MODEL=deepseek-chat
+```
+
+## 本地开发模式
+
+如果你不是“试用”，而是要参与开发，推荐下面这套环境：
+
+- Python 3.12+
+- Node.js 20+
+- Docker Desktop
 
 ### 1. 启动 PostgreSQL 和 Redis
 
@@ -171,55 +183,31 @@ npm install
 npm run dev
 ```
 
-### 4. 访问
+## QClaw 接入
 
-- 前端首页：`http://localhost:3000`
-- 来源管理：`http://localhost:3000/sources`
-- 采集页：`http://localhost:3000/collect`
-- 文章浏览：`http://localhost:3000/articles`
-- 日报页：`http://localhost:3000/reports`
-- 健康检查：`http://localhost:8000/api/v1/health`
+QClaw 是可选能力，不是项目运行的前置条件。
 
-## 公众号采集流程
+### 当前已实现的能力
 
-当前推荐流程：
+- 在微信里向 QClaw 请求某一天的日报
 
-1. 在 `/collect` 输入一篇真实公众号文章链接
-2. 提取公众号主页链接
-3. 在微信 PC 中打开主页链接
-4. 使用 Fiddler 抓取 `mp.weixin.qq.com/mp/profile_ext?...`
-5. 将该链接作为来源保存
-6. 对该来源执行同步
-
-说明：
-- 当前项目按 `Access_wechat_article` 的方法获取公众号历史文章
-- 来源一旦配置好，后续一般只需要继续同步，不需要每次重新抓 Fiddler
-- 只有 token 失效时，才需要重新抓一次
-
-## QClaw 接入说明
-
-当前接入方式：
-- QClaw 作为微信聊天入口
-- FocusLedger 后端负责生成日报
-- QClaw skill 负责调用本地 FocusLedger API
-
-调用链路：
+### 调用链路
 
 ```text
 微信 -> QClaw -> 本地 skill -> FocusLedger API -> 日报文本 -> QClaw -> 微信
 ```
 
-### Skill 目录
+### 关键文件
 
-项目内开发目录：
-- [qclaw-skills/focusledger-daily-report](E:/Desktop/FocusLedger/qclaw-skills/focusledger-daily-report)
-
-QClaw 安装目录：
-- [focusledger-daily-report](E:/QClaw/resources/openclaw/config/skills/focusledger-daily-report)
+- QClaw skill 开发目录:
+  - `qclaw-skills/focusledger-daily-report`
+- QClaw 接口:
+  - `backend/src/api/routes/qclaw.py`
+  - `backend/src/services/qclaw.py`
 
 ### 使用前提
 
-要想远程通过微信使用日报功能，本机至少要保持：
+如果要通过微信远程请求日报，本机需要同时保持：
 - QClaw 正在运行
 - FocusLedger 后端正在运行
 
@@ -231,29 +219,105 @@ QClaw 安装目录：
 给我前天的日报
 ```
 
-后续可继续扩展：
-- 详细版
-- 原文链接
-- 指定来源分组日报
+## 目录结构
 
-## 已知边界
+```text
+backend/          FastAPI 后端
+frontend/         Next.js 前端
+scripts/          一键启动与运维脚本
+qclaw-skills/     QClaw 自定义 skill
+```
 
-- 微信抓取依赖公众号 token 链接，本质上不是官方开放 API
-- token 失效后需要重新抓取
-- 富媒体内容目前主要按文本方式保留，不保留完整原始版式
-- 当前 QClaw 接入只做“按日期获取日报”，不包含同步、文章搜索、来源管理等动作
+## 关键代码位置
 
-## 当前阶段建议
+这些目录建议始终纳入 git 跟踪：
 
-如果你要把这个产品视为“初级阶段可交付版本”，现在已经可以覆盖：
-- 公众号来源管理
-- 公众号文章采集
-- 文章浏览与筛选
-- 指定日期日报
-- 微信内通过 QClaw 获取日报
+- 后端接口与服务
+  - `backend/src/api/routes`
+  - `backend/src/services`
+- 数据模型
+  - `backend/src/models`
+  - `backend/alembic/versions`
+- 前端页面与组件
+  - `frontend/app`
+  - `frontend/components`
+  - `frontend/lib`
+- 启动与集成脚本
+  - `scripts`
+  - `qclaw-skills`
+- 配置与文档
+  - `.env.example`
+  - `docker-compose.yml`
+  - `README.md`
 
-下一阶段再考虑：
+## 默认不应提交的内容
+
+仓库已经通过 `.gitignore` 排除了这些本地内容：
+
+- `.env`
+- `node_modules`
+- `.next`
+- 日志文件
+- 本地数据目录
+- 本地虚拟环境
+- SQLite / DB 文件
+
+上传到 GitHub 前，确认不要手动提交这些内容。
+
+## 常见问题
+
+### 1. 页面打不开
+
+先检查容器状态：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\status.ps1
+```
+
+再检查健康接口：
+
+```powershell
+curl http://localhost:8000/api/v1/health
+```
+
+### 2. 没有配置 LLM Key 能不能用
+
+可以。
+
+系统会退化到规则模式，仍然可以：
+- 管理来源
+- 同步文章
+- 浏览文章
+- 生成基础日报
+
+只是摘要、标签和日报质量会不如启用 LLM 时好。
+
+### 3. 组员只想试产品，不想配开发环境
+
+就按“最快试用方式”走：
+- 安装 Git
+- 安装 Docker Desktop
+- 运行 `scripts/quick-start.ps1`
+
+### 4. 组员要参与开发
+
+再额外安装：
+- Python 3.12+
+- Node.js 20+
+
+然后按“本地开发模式”启动。
+
+## 当前版本定位
+
+这个仓库现在可以作为一个可共享的 Phase 1 版本来使用，覆盖：
+- 来源管理
+- 内容同步
+- 文章浏览
+- 日报生成
+- QClaw 日报调用
+
+下一阶段再继续考虑：
 - 后端常驻化
-- 更稳的 token 失效处理
-- QClaw 的详细版/原文链接交互
-- 腾讯文档或文件形式分发完整版日报
+- 更细的日报交互
+- 更强的来源管理
+- 更完整的团队协作和部署方案

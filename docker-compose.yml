@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: focusledger
       POSTGRES_PASSWORD: focusledger
@@ -9,40 +10,62 @@ services:
       - "5432:5432"
     volumes:
       - focusledger_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U focusledger -d focusledger"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ./backend
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
       DATABASE_URL: postgresql+psycopg://focusledger:focusledger@postgres:5432/focusledger
       REDIS_URL: redis://redis:6379/0
       ARTICLE_STORAGE_PATH: /app/data/articles
+      ALLOW_CORS_ORIGINS: http://localhost:3000
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend/data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   frontend:
     build:
       context: ./frontend
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   focusledger_pgdata:
