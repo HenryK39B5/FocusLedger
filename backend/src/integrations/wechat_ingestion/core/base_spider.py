@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import requests
+from urllib3.exceptions import InsecureRequestWarning
 
 from src.integrations.wechat_ingestion.utils.tools import sleep_short
 from src.integrations.wechat_ingestion.utils.detection import is_wechat_captcha_page
@@ -18,19 +19,30 @@ class FetchResult:
 
 
 class BaseSpider:
-    def __init__(self, timeout: int = 20):
+    def __init__(self, timeout: int = 20, verify_ssl: bool = False):
         self.session = requests.Session()
+        self.session.trust_env = False
+        self.session.proxies = {"http": None, "https": None}
         self.timeout = timeout
+        self.verify_ssl = verify_ssl
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
         }
+        if not self.verify_ssl:
+            requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
     def fetch_article_html(self, url: str) -> FetchResult:
         try:
-            response = self.session.get(url, headers=self.headers, timeout=self.timeout, verify=False)
+            response = self.session.get(
+                url,
+                headers=self.headers,
+                timeout=self.timeout,
+                verify=self.verify_ssl,
+                proxies={"http": None, "https": None},
+            )
             sleep_short()
             if response.ok and response.text:
                 if is_wechat_captcha_page(response.text, response.url):

@@ -58,6 +58,37 @@ def _truncate(text: str, limit: int) -> str:
     return text[:limit].rstrip() + "..."
 
 
+_STOP_WORDS = {
+    "我们",
+    "他们",
+    "以及",
+    "对于",
+    "目前",
+    "其中",
+    "进行",
+    "表示",
+    "文章",
+    "认为",
+    "指出",
+    "可以",
+    "如果",
+    "因为",
+    "这个",
+    "那个",
+    "市场",
+    "公司",
+    "行业",
+    "方面",
+    "策略",
+    "资产",
+    "投资者",
+    "配置",
+    "收益",
+    "影响",
+    "风险偏好",
+}
+
+
 def _clean_list(value: Any, *, limit: int | None = None) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -67,9 +98,9 @@ def _clean_list(value: Any, *, limit: int | None = None) -> list[str]:
 
 def _extract_json_payload(text: str) -> dict[str, Any]:
     payload = text.strip()
-    if payload.startswith("```"):
-        payload = re.sub(r"^```(?:json)?\s*", "", payload, count=1, flags=re.IGNORECASE)
-        payload = re.sub(r"\s*```$", "", payload, count=1)
+    payload = re.sub(r"^```(?:json)?\s*", "", payload, count=1, flags=re.IGNORECASE)
+    payload = re.sub(r"\s*```$", "", payload, count=1)
+    payload = re.sub(r"<think>.*?</think>", "", payload, flags=re.DOTALL | re.IGNORECASE).strip()
     start = payload.find("{")
     end = payload.rfind("}")
     if start >= 0 and end > start:
@@ -92,7 +123,7 @@ def _heuristic_format_text(text: str) -> str:
         compact = re.sub(r"\s+", " ", block).strip()
         if not compact:
             continue
-        if len(compact) < 36 and not re.search(r"[。！？；：.!?]$", compact):
+        if len(compact) < 36 and not re.search(r"[。！？；?!]$", compact):
             buffer = f"{buffer}{compact}" if buffer else compact
             continue
         if buffer:
@@ -102,6 +133,75 @@ def _heuristic_format_text(text: str) -> str:
     if buffer:
         paragraphs.append(buffer)
     return "\n\n".join(paragraphs)
+
+
+def _split_sentences(text: str) -> list[str]:
+    sentences = [segment.strip() for segment in re.split(r"(?<=[。！？；?!])\s*", _normalize_text(text)) if segment.strip()]
+    if sentences:
+        return sentences
+    return [line.strip() for line in _normalize_text(text).splitlines() if line.strip()]
+
+
+def _token_overlap_ratio(source: str, candidate: str) -> float:
+    source_tokens = {token for token in _tokenize(source) if len(token) > 1}
+    candidate_tokens = {token for token in _tokenize(candidate) if len(token) > 1 and token not in _STOP_WORDS}
+    if not candidate_tokens:
+        return 1.0
+    overlap = candidate_tokens & source_tokens
+    return len(overlap) / len(candidate_tokens)
+
+
+def _is_grounded_summary(source: str, candidate: str) -> bool:
+    if not candidate.strip():
+        return False
+    source_tokens = {token for token in _tokenize(source) if len(token) > 1}
+    candidate_tokens = {token for token in _tokenize(candidate) if len(token) > 1 and token not in _STOP_WORDS}
+    overlap_ratio = _token_overlap_ratio(source, candidate)
+    novel_tokens = {token for token in candidate_tokens if token not in source_tokens}
+    novel_ratio = len(novel_tokens) / len(candidate_tokens) if candidate_tokens else 0.0
+    return overlap_ratio >= 0.7 and novel_ratio <= 0.3
+
+
+def _heuristic_summary(text: str, limit: int = 180) -> str:
+    formatted = _heuristic_format_text(text)
+    sentences = _split_sentences(formatted)
+    if not sentences:
+        return _truncate(formatted, limit)
+
+    scored: list[tuple[float, int, str]] = []
+    finance_keywords = (
+        "政策",
+        "利率",
+        "汇率",
+        "流动性",
+        "通胀",
+        "增长",
+        "财报",
+        "业绩",
+        "估值",
+        "风险",
+        "需求",
+        "供给",
+        "利润",
+        "营收",
+        "美元",
+        "原油",
+        "降息",
+        "降准",
+    )
+    for index, sentence in enumerate(sentences):
+        score = 0.0
+        score += max(0, 6 - index) * 0.2
+        score += min(len(sentence), 80) / 120.0
+        score += sum(1.0 for keyword in finance_keywords if keyword in sentence)
+        if re.search(r"\d", sentence):
+            score += 0.4
+        scored.append((score, index, sentence))
+
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    chosen = sorted(scored[:3], key=lambda item: item[1])
+    summary = "".join(sentence for _score, _index, sentence in chosen)
+    return _truncate(summary, limit)
 
 
 def _markdown_from_sections(title: str, overview: str, sections: list[dict[str, Any]], follow_ups: list[str]) -> str:
@@ -135,7 +235,7 @@ class RuleBasedProvider:
         self.settings = settings
 
     def summarize(self, text: str) -> str:
-        return _truncate(text, 180)
+        return _heuristic_summary(text, 180)
 
     def extract_features(self, text: str) -> dict[str, Any]:
         formatted_text = _heuristic_format_text(text)
@@ -151,6 +251,7 @@ class RuleBasedProvider:
             "risks": suggest_risks(formatted_text, limit=3),
             "style_tags": suggest_style_tags(formatted_text, limit=4),
             "taxonomy_version": TAXONOMY_VERSION,
+            "analysis_mode": "rule_fallback",
         }
 
     def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
@@ -204,37 +305,79 @@ class OpenAICompatibleProvider:
     name: str = "openai_compatible"
 
     def _headers(self) -> dict[str, str]:
+        headers = {
+            "Authorization": f"Bearer {self.settings.openai_api_key}",
+            "Content-Type": "application/json",
+        }
+        if self.settings.openai_organization:
+            headers["OpenAI-Organization"] = self.settings.openai_organization
+        return headers
+
+    def _request_payload(self, system: str, user: str) -> dict[str, Any]:
         return {
-          "Authorization": f"Bearer {self.settings.openai_api_key}",
-          "Content-Type": "application/json",
+            "model": self.settings.openai_model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": self.settings.openai_temperature,
+        }
+
+    def _extract_message_content(self, payload: dict[str, Any]) -> str:
+        choices = payload.get("choices") or []
+        if not choices:
+            raise ValueError("LLM response missing choices")
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_value = str(item.get("text") or "").strip()
+                    if text_value:
+                        parts.append(text_value)
+            if parts:
+                return "\n".join(parts).strip()
+        raise ValueError("LLM response missing message content")
+
+    def _client_kwargs(self) -> dict[str, Any]:
+        return {
+            "timeout": self.settings.openai_timeout_seconds,
+            "follow_redirects": True,
+            "verify": self.settings.openai_verify_ssl,
+            "headers": self._headers(),
         }
 
     def _chat_completion(self, *, system: str, user: str) -> str:
-        response = httpx.post(
-            urljoin(self.settings.openai_base_url.rstrip("/") + "/", "chat/completions"),
-            headers=self._headers(),
-            json={
-                "model": self.settings.openai_model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                "temperature": 0.2,
-            },
-            timeout=45,
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        return payload["choices"][0]["message"]["content"].strip()
+        url = urljoin(self.settings.openai_base_url.rstrip("/") + "/", "chat/completions")
+        payload = self._request_payload(system, user)
+        last_error: Exception | None = None
+        for attempt in range(1, max(self.settings.openai_max_retries, 1) + 1):
+            try:
+                if attempt > 1:
+                    logger.info("Retrying LLM request to %s (attempt %s)", self.settings.openai_base_url, attempt)
+                with httpx.Client(**self._client_kwargs()) as client:
+                    response = client.post(url, json=payload)
+                    response.raise_for_status()
+                    return self._extract_message_content(response.json())
+            except (httpx.ConnectError, httpx.ReadTimeout, httpx.HTTPError) as exc:
+                last_error = exc
+                if attempt >= self.settings.openai_max_retries:
+                    break
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("LLM request failed without a concrete error")
 
     def summarize(self, text: str) -> str:
         if not self.settings.openai_api_key:
             return RuleBasedProvider(self.settings).summarize(text)
         try:
             return self._chat_completion(
-                system="你是一名严谨的中文财经编辑。只输出摘要正文，不要输出额外解释。",
-                user=f"请用中文在 120 字以内总结下面这篇文章：\n{text}",
+                system="你是一名严谨的中文财经编辑。请输出一段 100 到 140 字的摘要，只保留关键事实、判断和影响，不要照抄原文开头，不要输出标题。",
+                user=f"请总结下面这篇文章的核心事实、判断和影响，避免照抄原句：\n\n{text}",
             )
         except Exception as exc:  # pragma: no cover
             logger.warning("LLM summarize failed, fallback to rule provider: %s", exc)
@@ -244,24 +387,29 @@ class OpenAICompatibleProvider:
         if not self.settings.openai_api_key:
             return RuleBasedProvider(self.settings).extract_features(text)
 
-        system = "你是一名严谨的中文财经内容分析助手。必须只返回 JSON，不要附带解释。"
+        system = (
+            "你是一名严谨的中文财经内容分析助手。"
+            "你必须只返回 JSON 对象，不要输出解释、前言、代码块或额外文本。"
+        )
         user = (
             f"{taxonomy_prompt_block()}\n"
-            "请基于文章内容输出 JSON，字段如下：\n"
+            "请基于文章内容返回 JSON，字段如下：\n"
             "{\n"
-            '  "summary": "120字以内摘要",\n'
-            '  "formatted_text": "重新整理段落后的正文，保持原意，不添加新信息",\n'
-            '  "topic_tags": ["..."],\n'
-            '  "entity_tags": ["..."],\n'
+            '  "summary": "100到140字的中文摘要，禁止照抄文章前两句",\n'
+            '  "formatted_text": "重新排版后的正文，保留原意，不新增事实",\n'
+            '  "topic_tags": ["从给定标签体系中选择"],\n'
+            '  "entity_tags": ["公司、机构、人物、产品等实体"],\n'
             '  "content_type": "深度研究|快讯|复盘|访谈|数据解读|公告解读|观点|新闻",\n'
-            '  "core_claims": ["..."],\n'
-            '  "key_variables": ["..."],\n'
-            '  "catalysts": ["..."],\n'
-            '  "risks": ["..."],\n'
-            '  "style_tags": ["..."]\n'
+            '  "core_claims": ["2到4条核心判断"],\n'
+            '  "key_variables": ["影响结论的关键变量"],\n'
+            '  "catalysts": ["可能的催化因素"],\n'
+            '  "risks": ["主要风险"],\n'
+            '  "style_tags": ["从给定样式标签中选择"]\n'
             "}\n"
-            "要求：formatted_text 只做排版、换段和轻度去噪，不要删除重要信息；"
-            "topic_tags 和 style_tags 只能从给定体系里选；entity_tags 不超过 8 个。\n"
+            "要求：formatted_text 只做排版、换段和轻量去噪；"
+            "summary 必须概括全文而不是截取开头；"
+            "topic_tags 和 style_tags 只能从给定体系中选择；"
+            "如果文章是行业新闻，不要误标成宏观政策。\n\n"
             f"文章内容：\n{text}"
         )
 
@@ -269,15 +417,25 @@ class OpenAICompatibleProvider:
             raw = self._chat_completion(system=system, user=user)
             data = _extract_json_payload(raw)
             formatted_text = str(data.get("formatted_text") or "").strip() or _heuristic_format_text(text)
+            heuristic_topic_tags = suggest_topic_tags(formatted_text, limit=8)
             topic_tags = normalize_tag_items(_clean_list(data.get("topic_tags")), allowed=TOPIC_TAG_SET, limit=8)
+            guarded = False
+            if heuristic_topic_tags and not set(topic_tags).intersection(heuristic_topic_tags):
+                topic_tags = heuristic_topic_tags
+                guarded = True
             style_tags = normalize_tag_items(_clean_list(data.get("style_tags")), allowed=STYLE_TAG_SET, limit=4)
             content_type = str(data.get("content_type") or "").strip()
             if content_type not in CONTENT_TYPE_SET:
                 content_type = suggest_content_type(formatted_text)
+                guarded = True
+            summary = _truncate(str(data.get("summary") or "").strip(), 180)
+            if not _is_grounded_summary(formatted_text, summary):
+                summary = RuleBasedProvider(self.settings).summarize(formatted_text)
+                guarded = True
             return {
-                "summary": _truncate(str(data.get("summary") or self.summarize(formatted_text)), 180),
+                "summary": summary or self.summarize(formatted_text),
                 "formatted_text": formatted_text,
-                "topic_tags": topic_tags or suggest_topic_tags(formatted_text, limit=8),
+                "topic_tags": topic_tags or heuristic_topic_tags,
                 "entity_tags": normalize_tag_items(_clean_list(data.get("entity_tags")), limit=8)
                 or extract_entity_tags(formatted_text, limit=8),
                 "content_type": content_type,
@@ -291,6 +449,7 @@ class OpenAICompatibleProvider:
                 or suggest_risks(formatted_text, limit=3),
                 "style_tags": style_tags or suggest_style_tags(formatted_text, limit=4),
                 "taxonomy_version": TAXONOMY_VERSION,
+                "analysis_mode": "llm_guarded" if guarded else "llm",
             }
         except Exception as exc:  # pragma: no cover
             logger.warning("LLM feature extraction failed, fallback to rule provider: %s", exc)
@@ -300,7 +459,10 @@ class OpenAICompatibleProvider:
         if not self.settings.openai_api_key:
             return RuleBasedProvider(self.settings).generate_daily_report(context)
 
-        system = "你是一名严谨的中文财经日报编辑。必须只返回 JSON，不要输出代码块或多余说明。"
+        system = (
+            "你是一名严谨的中文财经日报编辑。"
+            "你必须只返回 JSON 对象，不要输出代码块、解释或额外说明。"
+        )
         user = (
             "请根据给定的公众号文章集合生成一份日报。"
             "日报要综合利用来源分组、来源标签、文章摘要和文章主题标签。\n"
@@ -311,7 +473,7 @@ class OpenAICompatibleProvider:
             '  "sections": [{"title": "...", "summary": "...", "bullets": ["..."], "article_ids": ["..."]}],\n'
             '  "follow_ups": ["..."]\n'
             "}\n"
-            "要求：sections 2 到 6 个；每个 section 2 到 5 个 bullet；article_ids 必须来自输入的 article.id。\n"
+            "要求：sections 2 到 6 个；每个 section 2 到 5 条 bullet；article_ids 必须来自输入的 article.id。\n"
             f"输入数据：\n{json.dumps(context, ensure_ascii=False, indent=2)}"
         )
 

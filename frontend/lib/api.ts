@@ -6,7 +6,10 @@ import type {
   ArticleSource,
   ArticleSourceDeleteResult,
   DailyReport,
+  IngestionJob,
+  IngestionJobList,
   IngestionResult,
+  SourceCredentialCheckResult,
   WechatHomeLinkResolveResult,
 } from "@/lib/types";
 
@@ -22,7 +25,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error(`请求失败：${response.status}`);
+    let detail = "";
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      detail = payload.detail ? `：${payload.detail}` : "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(`请求失败 ${response.status}${detail}`);
   }
   return response.json() as Promise<T>;
 }
@@ -31,18 +41,10 @@ export const api = {
   health: () => apiFetch<{ status: string }>("/api/v1/health"),
   dailyReport: (options?: { date?: string; sourceId?: string; sourceGroup?: string; limit?: number }) => {
     const params = new URLSearchParams();
-    if (options?.date) {
-      params.set("date", options.date);
-    }
-    if (options?.sourceId) {
-      params.set("source_id", options.sourceId);
-    }
-    if (options?.sourceGroup) {
-      params.set("source_group", options.sourceGroup);
-    }
-    if (options?.limit != null) {
-      params.set("limit", String(options.limit));
-    }
+    if (options?.date) params.set("date", options.date);
+    if (options?.sourceId) params.set("source_id", options.sourceId);
+    if (options?.sourceGroup) params.set("source_group", options.sourceGroup);
+    if (options?.limit != null) params.set("limit", String(options.limit));
     return apiFetch<DailyReport>(`/api/v1/reports/daily${params.toString() ? `?${params.toString()}` : ""}`);
   },
   articles: (options?: {
@@ -57,27 +59,13 @@ export const api = {
   }) => {
     const params = new URLSearchParams();
     params.set("limit", String(options?.limit ?? 20));
-    if (options?.sourceId) {
-      params.set("source_id", options.sourceId);
-    }
-    if (options?.q) {
-      params.set("q", options.q);
-    }
-    if (options?.page != null) {
-      params.set("page", String(options.page));
-    }
-    if (options?.pageSize != null) {
-      params.set("page_size", String(options.pageSize));
-    }
-    if (options?.sort) {
-      params.set("sort", options.sort);
-    }
-    if (options?.dateFrom) {
-      params.set("date_from", options.dateFrom);
-    }
-    if (options?.dateTo) {
-      params.set("date_to", options.dateTo);
-    }
+    if (options?.sourceId) params.set("source_id", options.sourceId);
+    if (options?.q) params.set("q", options.q);
+    if (options?.page != null) params.set("page", String(options.page));
+    if (options?.pageSize != null) params.set("page_size", String(options.pageSize));
+    if (options?.sort) params.set("sort", options.sort);
+    if (options?.dateFrom) params.set("date_from", options.dateFrom);
+    if (options?.dateTo) params.set("date_to", options.dateTo);
     return apiFetch<ArticleList>(`/api/v1/articles?${params.toString()}`);
   },
   article: (id: string) => apiFetch<Article>(`/api/v1/articles/${id}`),
@@ -106,25 +94,45 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  updateSourceCredential: (sourceId: string, payload: { raw_link: string; validate_after_update?: boolean }) =>
+    apiFetch<ArticleSource>(`/api/v1/sources/${sourceId}/credential`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  verifySourceCredential: (sourceId: string) =>
+    apiFetch<SourceCredentialCheckResult>(`/api/v1/sources/${sourceId}/credential/verify`, {
+      method: "POST",
+    }),
   deleteSource: (sourceId: string) =>
     apiFetch<ArticleSourceDeleteResult>(`/api/v1/sources/${sourceId}`, {
       method: "DELETE",
     }),
   runIngestion: (sourceId: string, options?: { pageStart?: number; pageEnd?: number; sinceDays?: number | null }) => {
     const params = new URLSearchParams();
-    if (options?.pageStart != null) {
-      params.set("page_start", String(options.pageStart));
-    }
-    if (options?.pageEnd != null) {
-      params.set("page_end", String(options.pageEnd));
-    }
-    if (options?.sinceDays != null) {
-      params.set("since_days", String(options.sinceDays));
-    }
+    if (options?.pageStart != null) params.set("page_start", String(options.pageStart));
+    if (options?.pageEnd != null) params.set("page_end", String(options.pageEnd));
+    if (options?.sinceDays != null) params.set("since_days", String(options.sinceDays));
     const query = params.toString();
     return apiFetch<IngestionResult>(`/api/v1/ingestions/${sourceId}/run${query ? `?${query}` : ""}`, {
       method: "POST",
     });
   },
+  createIngestionJob: (payload: { sourceId: string; pageStart?: number; pageEnd?: number; sinceDays?: number | null }) =>
+    apiFetch<IngestionJob>("/api/v1/ingestion-jobs", {
+      method: "POST",
+      body: JSON.stringify({
+        source_id: payload.sourceId,
+        page_start: payload.pageStart ?? 1,
+        page_end: payload.pageEnd ?? 20,
+        since_days: payload.sinceDays ?? null,
+      }),
+    }),
+  ingestionJobs: (options?: { sourceId?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.sourceId) params.set("source_id", options.sourceId);
+    if (options?.limit != null) params.set("limit", String(options.limit));
+    return apiFetch<IngestionJobList>(`/api/v1/ingestion-jobs${params.toString() ? `?${params.toString()}` : ""}`);
+  },
+  ingestionJob: (jobId: string) => apiFetch<IngestionJob>(`/api/v1/ingestion-jobs/${jobId}`),
   status: () => apiFetch<Record<string, unknown>>("/api/v1/system/status"),
 };

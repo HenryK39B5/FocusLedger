@@ -3,7 +3,8 @@ from src.models.article_embedding import ArticleEmbedding
 from src.models.article_metrics import ArticleMetrics
 from src.models.article_source import ArticleSource
 from src.models.feedback_event import FeedbackEvent
+from src.models.ingestion_job import IngestionJob
 from src.models.novelty_analysis import NoveltyAnalysis
 from src.models.recommendation_result import RecommendationResult
+from src.models.source_credential import SourceCredential
 from src.models.user_profile import UserProfile
-

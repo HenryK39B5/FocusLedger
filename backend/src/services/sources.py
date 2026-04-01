@@ -5,8 +5,26 @@ import re
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from src.models import Article, ArticleEmbedding, ArticleMetrics, ArticleSource, FeedbackEvent, NoveltyAnalysis, RecommendationResult
-from src.schemas.content import ArticleSourceCreate, ArticleSourceDeleteRead, ArticleSourceUpdate
+from src.core.config import Settings
+from src.integrations.wechat_ingestion.utils.discovery import build_public_home_link
+from src.models import (
+    Article,
+    ArticleEmbedding,
+    ArticleMetrics,
+    ArticleSource,
+    FeedbackEvent,
+    IngestionJob,
+    NoveltyAnalysis,
+    RecommendationResult,
+)
+from src.schemas.content import (
+    ArticleSourceCreate,
+    ArticleSourceDeleteRead,
+    ArticleSourceUpdate,
+    SourceCredentialCheckRead,
+    SourceCredentialUpdate,
+)
+from src.services.source_credentials import SourceCredentialService
 
 
 def _normalize_tags(tags: list[str] | None) -> list[str]:
@@ -43,12 +61,37 @@ class SourceService:
     def get_source(self, db: Session, source_id: str) -> ArticleSource | None:
         return db.get(ArticleSource, source_id)
 
-    def create_source(self, db: Session, payload: ArticleSourceCreate) -> ArticleSource:
+    def get_source_by_biz(self, db: Session, biz: str) -> ArticleSource | None:
+        return db.scalar(select(ArticleSource).where(ArticleSource.biz == biz))
+
+    def create_source(self, db: Session, settings: Settings, payload: ArticleSourceCreate) -> ArticleSource:
+        existing = self.get_source_by_biz(db, payload.biz)
+        if existing:
+            raise ValueError("该公众号来源已经存在，请直接更新来源凭据。")
+
         data = payload.model_dump()
-        data["source_group"] = normalize_group_path(data.get("source_group"))
-        data["tags"] = _normalize_tags(data.get("tags"))
-        source = ArticleSource(**data)
+        biz = data["biz"].strip()
+        source = ArticleSource(
+            name=data["name"].strip(),
+            source_type=data.get("source_type", "wechat_public_account"),
+            biz=biz,
+            public_home_link=(data.get("public_home_link") or build_public_home_link(biz)).strip(),
+            source_group=normalize_group_path(data.get("source_group")),
+            tags=_normalize_tags(data.get("tags")),
+            description=(data.get("description") or "").strip() or None,
+            enabled=bool(data.get("enabled", True)),
+            credential_status="unknown",
+            source_identifier=None,
+        )
         db.add(source)
+        db.flush()
+
+        SourceCredentialService(settings).upsert_manual_credential(
+            db,
+            source,
+            data["credential_link"],
+            validate_after_update=False,
+        )
         db.flush()
         return source
 
@@ -58,10 +101,38 @@ class SourceService:
             updates["source_group"] = normalize_group_path(updates["source_group"])
         if "tags" in updates:
             updates["tags"] = _normalize_tags(updates["tags"])
+        if "name" in updates and updates["name"] is not None:
+            updates["name"] = updates["name"].strip()
+        if "description" in updates and updates["description"] is not None:
+            updates["description"] = updates["description"].strip() or None
         for key, value in updates.items():
             setattr(source, key, value)
         db.flush()
         return source
+
+    def update_source_credential(
+        self,
+        db: Session,
+        settings: Settings,
+        source: ArticleSource,
+        payload: SourceCredentialUpdate,
+    ) -> tuple[ArticleSource, SourceCredentialCheckRead | None]:
+        _, check = SourceCredentialService(settings).upsert_manual_credential(
+            db,
+            source,
+            payload.raw_link,
+            validate_after_update=payload.validate_after_update,
+        )
+        db.flush()
+        return source, check
+
+    def verify_source_credential(
+        self,
+        db: Session,
+        settings: Settings,
+        source: ArticleSource,
+    ) -> SourceCredentialCheckRead:
+        return SourceCredentialService(settings).verify_credential(db, source)
 
     def delete_source(self, db: Session, source: ArticleSource) -> ArticleSourceDeleteRead:
         articles = list(db.scalars(select(Article).where(Article.source_id == source.id)).all())
@@ -74,6 +145,8 @@ class SourceService:
             db.execute(delete(FeedbackEvent).where(FeedbackEvent.article_id.in_(article_ids)))
             for article in articles:
                 db.delete(article)
+
+        db.execute(delete(IngestionJob).where(IngestionJob.source_id == source.id))
         deleted_count = len(article_ids)
         source_name = source.name
         db.delete(source)

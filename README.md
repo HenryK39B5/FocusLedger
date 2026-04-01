@@ -1,181 +1,229 @@
 # FocusLedger
 
-FocusLedger 是一个面向中文公众号信息流的本地研究与日报工具。
+FocusLedger 是一个面向中文微信公众号文章的本地研究与内容整理工具。
 
-它当前聚焦四件事：
-- 管理关注来源
-- 同步文章内容到本地知识库
-- 用 LLM 生成摘要和标签
-- 按指定日期生成日报，并支持通过 QClaw 在微信里调取日报
+当前阶段，它已经具备以下基础能力：
 
-## 当前阶段能做什么
+- 管理公众号来源
+- 将文章同步到本地文章库
+- 对文章做摘要、标签和结构化整理
+- 生成指定日期的日报
+- 通过 QClaw 在微信中调用日报
 
-- 公众号来源管理
-  - 新增、编辑、删除来源
-  - 多级分组
-  - 多标签
-- 文章同步
-  - 按来源同步历史内容
-  - 按页数和近几天范围控制同步
-  - 自动去重
-- 文章系统
-  - 搜索、筛选、排序、分页
-  - 时间区间筛选
-  - 单篇删除、批量删除
-  - 详情页查看摘要、正文、标签和原文链接
-- 日报系统
-  - 按日期生成日报
-  - 按来源或来源分组限制日报范围
-- QClaw 接入
-  - 在微信里向 QClaw 请求某一天的日报
+当前产品方向已经从“提升凭据自动刷新成功率”转向“充分利用已有公众号文章数据”，目标是逐步演进为一个基于微信公众号文章的 NotebookLM 型产品。
 
-## 给组员的最快试用方式
+## 1. 当前产品判断
 
-如果只是想先把产品跑起来，不需要先装 Python、Node.js、PostgreSQL、Redis。
+FocusLedger 目前最有价值的资产不是自动获取最新文章，而是已经沉淀下来的：
 
-推荐最小依赖：
+- 公众号来源管理能力
+- 文章数据库
+- 文章结构化处理能力
+- 日报生成能力
+- QClaw 集成经验
+
+因此，当前主线重点是：
+
+- 保持来源管理和文章同步可用
+- 保留凭据状态检测和手动更新能力
+- 围绕文章库、收藏、标签、工作区和 AI 助理能力继续发展
+
+当前版本已经不再把 Fiddler 半自动刷新作为正式主流程。  
+当凭据失效时，系统会明确提示用户手动更新 `profile_ext` 凭据，然后重新同步。
+
+## 2. 当前技术结构
+
+### 前端
+
+- 技术栈：Next.js App Router
+- 目录：`frontend/`
+- 主要页面：
+  - `/sources`
+  - `/sources/add`
+  - `/collect`
+  - `/articles`
+  - `/reports`
+  - `/status`
+
+### 后端
+
+- 技术栈：FastAPI
+- 目录：`backend/`
+- 主要职责：
+  - 来源管理
+  - 文章同步与入库
+  - 正文解析
+  - 摘要与标签生成
+  - 日报生成
+  - QClaw 接口
+
+### 基础设施
+
+- PostgreSQL
+- Redis
+- Docker Compose
+
+### QClaw
+
+- 目录：`qclaw-skills/`
+- 当前已完成：通过微信请求指定日期日报
+
+## 3. 当前正式来源接入方式
+
+### 3.1 来源创建
+
+1. 用户提供一篇公众号文章链接
+2. 系统解析 `__biz`
+3. 系统生成公众号主页链接
+4. 用户在微信 PC 中打开主页链接
+5. 用户手动获取并保存一条 `profile_ext` 链接作为来源凭据
+6. 后端后续使用这条凭据分页获取文章列表
+
+### 3.2 凭据失效后的处理方式
+
+来源凭据具有时效性，不是永久有效。
+
+当前正式流程是：
+
+1. 点击“同步文章”
+2. 系统先验证当前凭据
+3. 凭据有效：继续同步
+4. 凭据失效：同步失败，并明确提示用户手动更新凭据
+5. 用户在 `/collect` 页面粘贴新的 `profile_ext` 链接
+6. 系统校验新凭据
+7. 用户再次发起同步
+
+这意味着，当前版本保留了：
+
+- 凭据有效性检测
+- 凭据状态展示
+- 凭据手动更新
+- 同步任务面板
+
+不再保留：
+
+- 自动启动 Fiddler
+- 自动读取抓包结果
+- 自动刷新凭据
+
+## 4. 已完成功能
+
+### 4.1 来源管理
+
+- 新建来源
+- 编辑来源
+- 删除来源
+- 多级分组
+- 多标签
+
+### 4.2 文章同步
+
+- 支持按来源同步
+- 支持起始页、结束页控制同步范围
+- 支持按近几天过滤
+- 支持文章去重
+- 支持凭据验证
+- 支持凭据手动更新
+- 支持后台同步任务和任务进度面板
+
+### 4.3 文章系统
+
+- 文章浏览器
+- 关键词搜索
+- 来源筛选
+- 时间区间筛选
+- 排序与分页
+- 单篇删除
+- 批量删除
+- 文章详情查看
+
+### 4.4 内容结构化
+
+- LLM 摘要
+- LLM 标签
+- 正文清洗与轻量整理
+
+### 4.5 日报系统
+
+- 按指定日期生成日报
+- 支持按来源和来源分组缩小范围
+- 汇总摘要、来源信息和标签信息
+
+### 4.6 QClaw 集成
+
+- 已支持通过微信请求指定日期日报
+
+## 5. 下一阶段方向
+
+产品方向见根目录文档：
+
+- `PRODUCT_NOTEBOOKLM_DIRECTION.md`
+
+当前重点不再是继续投入高不确定性的自动刷新链路，而是围绕已有公众号文章数据发展：
+
+- 收藏管理
+- 标签系统
+- 工作区 / Notebook
+- 基于工作区的问答与内容生成
+- AI 助理式管理交互
+- QClaw / Codex CLI / MCP 协同调用
+
+## 6. 快速启动
+
+### 6.1 试用环境
+
+如果只是试用产品，推荐安装：
+
 - Git
 - Docker Desktop
 
-### 1. 克隆项目
+#### 启动
 
 ```powershell
-git clone <你的-github-仓库地址>
+git clone <你的仓库地址>
 cd FocusLedger
-```
-
-### 2. 启动整个项目
-
-```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\quick-start.ps1
 ```
 
-这个脚本会做两件事：
-- 如果没有 `.env`，自动从 `.env.example` 复制一份
-- 直接用 Docker 启动 PostgreSQL、Redis、后端、前端
+打开：
 
-### 3. 打开页面
+- 前端：http://localhost:3000
+- 后端健康检查：http://localhost:8000/api/v1/health
 
-- 前端首页: [http://localhost:3000](http://localhost:3000)
-- 来源管理: [http://localhost:3000/sources](http://localhost:3000/sources)
-- 同步页: [http://localhost:3000/collect](http://localhost:3000/collect)
-- 文章浏览: [http://localhost:3000/articles](http://localhost:3000/articles)
-- 日报页: [http://localhost:3000/reports](http://localhost:3000/reports)
-
-### 4. 检查服务状态
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\status.ps1
-```
-
-### 5. 查看前后端日志
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\logs.ps1
-```
-
-### 6. 停止项目
+#### 停止
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\quick-stop.ps1
 ```
 
-## 页面说明
+### 6.2 开发环境
 
-- `/sources`
-  - 管理来源、分组、标签
-- `/collect`
-  - 配置来源、执行同步
-- `/articles`
-  - 浏览和筛选文章
-- `/reports`
-  - 生成日报
-- `/status`
-  - 查看系统状态
+建议安装：
 
-## 团队协作建议
-
-如果你们是多人协作，建议按这个方式使用仓库：
-
-- `main`
-  - 始终保持可运行
-- 每个开发者从 `main` 拉分支开发
-- 完成后再合并回 `main`
-
-建议的工作流：
-
-```powershell
-git checkout main
-git pull
-git checkout -b feature/your-feature-name
-```
-
-## 环境变量
-
-项目根目录有一份模板：
-- `.env.example`
-
-第一次启动时，`scripts/quick-start.ps1` 会自动生成 `.env`。
-
-默认情况下，即使不配置 LLM Key，系统也能运行，只是会退化到规则模式。
-
-### 常用配置
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-
-APP_NAME=FocusLedger
-ENVIRONMENT=development
-API_PREFIX=/api/v1
-
-DATABASE_URL=postgresql+psycopg://focusledger:focusledger@localhost:5432/focusledger
-REDIS_URL=redis://localhost:6379/0
-
-AUTO_CREATE_SCHEMA=true
-ALLOW_CORS_ORIGINS=http://localhost:3000
-ARTICLE_STORAGE_PATH=backend/data/articles
-
-LLM_PROVIDER=rule
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-QCLAW_INTEGRATION_KEY=
-```
-
-### DeepSeek 配置示例
-
-如果你要启用基于 OpenAI 格式的模型接口，可以这样配置：
-
-```env
-LLM_PROVIDER=openai_compatible
-OPENAI_API_KEY=你的key
-OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_MODEL=deepseek-chat
-```
-
-## 本地开发模式
-
-如果你不是“试用”，而是要参与开发，推荐下面这套环境：
-
-- Python 3.12+
-- Node.js 20+
+- Python 3.12
+- Node.js 22
 - Docker Desktop
 
-### 1. 启动 PostgreSQL 和 Redis
+#### 1. 复制环境变量
+
+```powershell
+copy .env.example .env
+```
+
+#### 2. 启动 PostgreSQL 和 Redis
 
 ```powershell
 docker compose up -d postgres redis
 ```
 
-### 2. 启动后端
+#### 3. 启动后端
 
 ```powershell
 cd backend
 python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. 启动前端
+#### 4. 启动前端
 
 ```powershell
 cd frontend
@@ -183,141 +231,110 @@ npm install
 npm run dev
 ```
 
-## QClaw 接入
+如果 `3000` 端口不可用：
 
-QClaw 是可选能力，不是项目运行的前置条件。
-
-### 当前已实现的能力
-
-- 在微信里向 QClaw 请求某一天的日报
-
-### 调用链路
-
-```text
-微信 -> QClaw -> 本地 skill -> FocusLedger API -> 日报文本 -> QClaw -> 微信
+```powershell
+npm run dev:3300
 ```
 
-### 关键文件
+## 7. 环境变量
 
-- QClaw skill 开发目录:
-  - `qclaw-skills/focusledger-daily-report`
-- QClaw 接口:
-  - `backend/src/api/routes/qclaw.py`
-  - `backend/src/services/qclaw.py`
+`.env.example` 已给出基础示例。
 
-### 使用前提
+常用配置项：
 
-如果要通过微信远程请求日报，本机需要同时保持：
-- QClaw 正在运行
-- FocusLedger 后端正在运行
+```env
+DATABASE_URL=postgresql+psycopg://focusledger:focusledger@localhost:5432/focusledger
+REDIS_URL=redis://localhost:6379/0
 
-### 示例话术
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+ALLOW_CORS_ORIGINS=http://localhost:3000,http://localhost:3300
 
-```text
-给我 2026-03-20 的日报
-给我昨天的日报
-给我前天的日报
+LLM_PROVIDER=rule
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_VERIFY_SSL=true
+OPENAI_TIMEOUT_SECONDS=45
+OPENAI_MAX_RETRIES=2
+
+WECHAT_VERIFY_SSL=false
+QCLAW_INTEGRATION_KEY=
 ```
 
-## 目录结构
+## 8. 页面说明
 
-```text
-backend/          FastAPI 后端
-frontend/         Next.js 前端
-scripts/          一键启动与运维脚本
-qclaw-skills/     QClaw 自定义 skill
-```
+### `/sources`
 
-## 关键代码位置
+- 查看和管理来源
+- 编辑来源信息
+- 删除来源
 
-这些目录建议始终纳入 git 跟踪：
+### `/sources/add`
 
-- 后端接口与服务
-  - `backend/src/api/routes`
-  - `backend/src/services`
-- 数据模型
-  - `backend/src/models`
-  - `backend/alembic/versions`
-- 前端页面与组件
-  - `frontend/app`
-  - `frontend/components`
-  - `frontend/lib`
-- 启动与集成脚本
-  - `scripts`
-  - `qclaw-skills`
-- 配置与文档
-  - `.env.example`
-  - `docker-compose.yml`
-  - `README.md`
+- 通过文章链接创建新来源
+- 自动解析 `__biz`
+- 自动生成主页链接
 
-## 默认不应提交的内容
+### `/collect`
 
-仓库已经通过 `.gitignore` 排除了这些本地内容：
+- 验证凭据
+- 手动更新凭据
+- 设置同步参数
+- 发起同步任务
+- 查看最近任务结果
+
+### `/articles`
+
+- 搜索和筛选文章
+- 查看文章详情
+- 删除文章
+
+### `/reports`
+
+- 生成指定日期日报
+- 按来源或来源分组缩小范围
+
+## 9. 关键目录
+
+- `backend/src/api/`
+- `backend/src/services/`
+- `backend/src/integrations/wechat_ingestion/`
+- `backend/src/parsers/`
+- `backend/src/llm/`
+- `frontend/app/`
+- `frontend/lib/`
+- `qclaw-skills/`
+- `scripts/`
+
+## 10. 目录清理约定
+
+建议纳入 Git 跟踪：
+
+- 前后端代码
+- README
+- AGENTS.md
+- 数据库迁移文件
+- QClaw 技能
+- 启动脚本
+- 产品与架构文档
+
+不应纳入 Git：
 
 - `.env`
-- `node_modules`
-- `.next`
-- 日志文件
-- 本地数据目录
-- 本地虚拟环境
-- SQLite / DB 文件
+- 本地日志
+- 本地缓存
+- 临时导出文件
+- `_ref_Access_wechat_article/`
+- `.claude/`
 
-上传到 GitHub 前，确认不要手动提交这些内容。
+## 11. 历史说明
 
-## 常见问题
+这些技术路径已经被验证为不再作为主线继续投入：
 
-### 1. 页面打不开
+- mitmproxy
+- 自研 Windows helper（`.NET 8 + Titanium.Web.Proxy`）
+- FiddlerCore
+- Fiddler Classic 半自动刷新主流程
 
-先检查容器状态：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\status.ps1
-```
-
-再检查健康接口：
-
-```powershell
-curl http://localhost:8000/api/v1/health
-```
-
-### 2. 没有配置 LLM Key 能不能用
-
-可以。
-
-系统会退化到规则模式，仍然可以：
-- 管理来源
-- 同步文章
-- 浏览文章
-- 生成基础日报
-
-只是摘要、标签和日报质量会不如启用 LLM 时好。
-
-### 3. 组员只想试产品，不想配开发环境
-
-就按“最快试用方式”走：
-- 安装 Git
-- 安装 Docker Desktop
-- 运行 `scripts/quick-start.ps1`
-
-### 4. 组员要参与开发
-
-再额外安装：
-- Python 3.12+
-- Node.js 20+
-
-然后按“本地开发模式”启动。
-
-## 当前版本定位
-
-这个仓库现在可以作为一个可共享的 Phase 1 版本来使用，覆盖：
-- 来源管理
-- 内容同步
-- 文章浏览
-- 日报生成
-- QClaw 日报调用
-
-下一阶段再继续考虑：
-- 后端常驻化
-- 更细的日报交互
-- 更强的来源管理
-- 更完整的团队协作和部署方案
+对应历史文档可以保留作参考，但当前实现和产品方向已经不再围绕这些路径推进。

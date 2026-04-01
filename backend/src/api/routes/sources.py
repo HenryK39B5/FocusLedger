@@ -4,7 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.api.deps import db_session
-from src.schemas.content import ArticleSourceCreate, ArticleSourceDeleteRead, ArticleSourceRead, ArticleSourceUpdate
+from src.core.config import get_settings
+from src.schemas.content import (
+    ArticleSourceCreate,
+    ArticleSourceDeleteRead,
+    ArticleSourceRead,
+    ArticleSourceUpdate,
+    SourceCredentialCheckRead,
+    SourceCredentialUpdate,
+)
 from src.services.sources import SourceService
 
 router = APIRouter(prefix="/sources", tags=["sources"])
@@ -18,7 +26,10 @@ def list_sources(db: Session = Depends(db_session)):
 
 @router.post("", response_model=ArticleSourceRead)
 def create_source(payload: ArticleSourceCreate, db: Session = Depends(db_session)):
-    source = service.create_source(db, payload)
+    try:
+        source = service.create_source(db, get_settings(), payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
     db.refresh(source)
     return source
@@ -33,6 +44,30 @@ def update_source(source_id: str, payload: ArticleSourceUpdate, db: Session = De
     db.commit()
     db.refresh(source)
     return source
+
+
+@router.put("/{source_id}/credential", response_model=ArticleSourceRead)
+def update_source_credential(source_id: str, payload: SourceCredentialUpdate, db: Session = Depends(db_session)):
+    source = service.get_source(db, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="source not found")
+    try:
+        source, _ = service.update_source_credential(db, get_settings(), source, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    db.refresh(source)
+    return source
+
+
+@router.post("/{source_id}/credential/verify", response_model=SourceCredentialCheckRead)
+def verify_source_credential(source_id: str, db: Session = Depends(db_session)):
+    source = service.get_source(db, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="source not found")
+    result = service.verify_source_credential(db, get_settings(), source)
+    db.commit()
+    return result
 
 
 @router.delete("/{source_id}", response_model=ArticleSourceDeleteRead)

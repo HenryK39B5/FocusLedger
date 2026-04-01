@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import (
     articles_router,
     health_router,
+    ingestion_jobs_router,
     ingestions_router,
     qclaw_router,
     reports_router,
@@ -18,6 +19,7 @@ from src.core.logging import configure_logging
 from src.db.base import Base
 from src.db.session import engine
 from src.models import *  # noqa: F403
+from src.services.ingestion_jobs import ingestion_job_service
 
 
 def create_app() -> FastAPI:
@@ -37,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(articles_router, prefix=settings.api_prefix)
     app.include_router(reports_router, prefix=settings.api_prefix)
     app.include_router(qclaw_router, prefix=settings.api_prefix)
+    app.include_router(ingestion_jobs_router, prefix=settings.api_prefix)
     app.include_router(ingestions_router, prefix=settings.api_prefix)
     app.include_router(wechat_router, prefix=settings.api_prefix)
     app.include_router(status_router, prefix=settings.api_prefix)
@@ -45,6 +48,7 @@ def create_app() -> FastAPI:
     def on_startup() -> None:
         if settings.auto_create_schema:
             Base.metadata.create_all(bind=engine)
+        ingestion_job_service.reconcile_stale_runtime_state()
 
     @app.get("/")
     def root() -> dict[str, str]:

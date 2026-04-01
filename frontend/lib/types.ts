@@ -1,12 +1,35 @@
+export type SourceCredential = {
+  id: string;
+  source_id: string;
+  provider: string;
+  raw_link: string;
+  token_biz: string;
+  uin: string;
+  appmsg_token?: string | null;
+  session_us?: string | null;
+  scene?: string | null;
+  username?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ArticleSource = {
   id: string;
   name: string;
   source_type: string;
-  source_identifier: string;
+  biz: string;
+  public_home_link: string;
   source_group?: string | null;
   tags: string[];
   description?: string | null;
   enabled: boolean;
+  credential_status: string;
+  last_verified_at?: string | null;
+  last_sync_succeeded_at?: string | null;
+  last_sync_failed_at?: string | null;
+  last_error_code?: string | null;
+  last_error_message?: string | null;
+  credential?: SourceCredential | null;
   created_at: string;
   updated_at: string;
 };
@@ -116,6 +139,49 @@ export type IngestionResult = {
   failed_count: number;
   message: string;
   article_ids: string[];
+  needs_refresh: boolean;
+  credential_status_after_run: string;
+  failure_reason_category?: string | null;
+};
+
+export type IngestionJob = {
+  id: string;
+  source_id: string;
+  source_name: string;
+  status: string;
+  page_start: number;
+  page_end: number;
+  since_days?: number | null;
+  current_stage?: string | null;
+  current_article_title?: string | null;
+  current_article_url?: string | null;
+  processed_count: number;
+  imported_count: number;
+  updated_count: number;
+  failed_count: number;
+  total_candidates?: number | null;
+  message?: string | null;
+  failure_reason_category?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IngestionJobList = {
+  items: IngestionJob[];
+};
+
+export type SourceCredentialCheckResult = {
+  source_id: string;
+  source_name: string;
+  valid: boolean;
+  credential_status: string;
+  needs_refresh: boolean;
+  error_code?: string | null;
+  error_message?: string | null;
+  last_verified_at?: string | null;
+  message: string;
 };
 
 export type ArticleDeleteResult = {

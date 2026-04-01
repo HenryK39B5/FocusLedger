@@ -27,7 +27,7 @@ class WeChatDiscoveryService:
                 biz=biz,
                 public_home_link=home_link,
                 resolved=True,
-                message="已从链接参数中提取公众号主页链接",
+                message="已从链接参数中提取出公众号主页链接。",
             )
 
         fetch_result = self.spider.fetch_article_html(article_url)
@@ -35,7 +35,7 @@ class WeChatDiscoveryService:
             return WechatHomeLinkResolveResponse(
                 article_url=article_url,
                 resolved=False,
-                message=fetch_result.error or "无法获取文章页面，可能被微信验证码拦截",
+                message=fetch_result.error or "无法获取文章页面，可能被微信验证页或风控页面拦截。",
             )
 
         biz, home_link = resolve_public_home_link(article_url, fetch_result.html)
@@ -43,7 +43,7 @@ class WeChatDiscoveryService:
             return WechatHomeLinkResolveResponse(
                 article_url=article_url,
                 resolved=False,
-                message="未能从文章页解析出 __biz，请使用微信PC / Fiddler 打开文章后再重试",
+                message="未能从文章页面解析出 __biz，请在微信 PC 中重新打开文章后再试。",
             )
 
         parsed = self.spider.parse_article_html(fetch_result.html, article_url)
@@ -54,5 +54,5 @@ class WeChatDiscoveryService:
             biz=biz,
             public_home_link=home_link,
             resolved=True,
-            message="已从文章页解析出公众号主页链接",
+            message="已从文章页面解析出公众号主页链接。",
         )

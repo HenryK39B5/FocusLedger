@@ -5,12 +5,11 @@ import Link from "next/link";
 import { PencilLine, Save, Trash2, X } from "lucide-react";
 import { useMutations, useSources } from "@/lib/queries";
 import type { ArticleSource } from "@/lib/types";
-import { summarizeWechatSourceIdentifier } from "@/lib/wechat";
+import { credentialStatusLabel, formatDateTimeShanghai, summarizeWechatHomeLink } from "@/lib/wechat";
 import { ActionButton, EmptyState, Input, Label, PageFrame, SectionTitle, TagPills, Textarea } from "@/components/ui";
 
 type SourceDraft = {
   name: string;
-  source_identifier: string;
   source_group: string;
   tags: string;
   description: string;
@@ -39,7 +38,7 @@ function normalizeGroupPath(value: string | null | undefined) {
 
 function parseTags(value: string) {
   return value
-    .split(/[,\n，]+/)
+    .split(/[,\n，]/)
     .map((tag) => tag.trim())
     .filter(Boolean)
     .filter((tag, index, list) => list.indexOf(tag) === index);
@@ -117,6 +116,19 @@ function collectSourceCount(node: GroupNode): number {
   return node.sources.length + node.children.reduce((sum, child) => sum + collectSourceCount(child), 0);
 }
 
+function statusTone(status: string) {
+  switch (status) {
+    case "valid":
+      return "border-emerald-400/30 bg-emerald-500/10 text-emerald-100";
+    case "refresh_required":
+      return "border-amber-400/30 bg-amber-500/10 text-amber-100";
+    case "invalid":
+      return "border-red-400/30 bg-red-500/10 text-red-100";
+    default:
+      return "border-white/10 bg-white/5 text-white/70";
+  }
+}
+
 export default function SourcesPage() {
   const sources = useSources();
   const mutations = useMutations();
@@ -134,7 +146,6 @@ export default function SourcesPage() {
       ...current,
       [source.id]: {
         name: source.name,
-        source_identifier: source.source_identifier,
         source_group: source.source_group ?? "",
         tags: formatTags(source.tags ?? []),
         description: source.description ?? "",
@@ -145,7 +156,6 @@ export default function SourcesPage() {
   function updateDraft(sourceId: string, patch: Partial<SourceDraft>) {
     const currentDraft = editDrafts[sourceId] ?? {
       name: "",
-      source_identifier: "",
       source_group: "",
       tags: "",
       description: "",
@@ -170,7 +180,6 @@ export default function SourcesPage() {
         sourceId: source.id,
         payload: {
           name: draft.name.trim(),
-          source_identifier: draft.source_identifier.trim(),
           source_group: normalizeGroupPath(draft.source_group) || null,
           tags: parseTags(draft.tags),
           description: draft.description.trim() || null,
@@ -225,13 +234,6 @@ export default function SourcesPage() {
               />
             </div>
             <div>
-              <Label>来源链接</Label>
-              <Input
-                value={draft.source_identifier}
-                onChange={(event) => updateDraft(source.id, { source_identifier: event.target.value })}
-              />
-            </div>
-            <div>
               <Label>备注</Label>
               <Textarea
                 value={draft.description}
@@ -253,8 +255,14 @@ export default function SourcesPage() {
           <div>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h4 className="text-lg font-medium text-white">{source.name}</h4>
-                <p className="mt-2 text-sm text-white/50">{summarizeWechatSourceIdentifier(source.source_identifier)}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-lg font-medium text-white">{source.name}</h4>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone(source.credential_status)}`}>
+                    {credentialStatusLabel(source.credential_status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-white/50">{summarizeWechatHomeLink(source.public_home_link, source.biz)}</p>
+                <p className="mt-2 text-xs text-white/40">biz: {source.biz}</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <ActionButton variant="ghost" onClick={() => startEdit(source)}>
@@ -273,6 +281,11 @@ export default function SourcesPage() {
                 <TagPills items={source.tags} />
               </div>
             ) : null}
+            <div className="mt-4 grid gap-2 text-xs text-white/45 md:grid-cols-2">
+              <p>最后验证：{formatDateTimeShanghai(source.last_verified_at)}</p>
+              <p>最后更新：{formatDateTimeShanghai(source.last_sync_succeeded_at)}</p>
+              <p className="md:col-span-2">最近错误：{source.last_error_message ?? "--"}</p>
+            </div>
           </div>
         )}
       </div>
@@ -287,7 +300,7 @@ export default function SourcesPage() {
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-white/40">{node.path}</p>
               <h4 className="mt-2 text-xl text-white">{node.name}</h4>
-              <p className="mt-2 text-sm text-white/55">本分组及其子分组共 {collectSourceCount(node)} 个公众号来源。</p>
+              <p className="mt-2 text-sm text-white/55">本分组及其子分组共包含 {collectSourceCount(node)} 个公众号来源。</p>
             </div>
           </div>
           {node.sources.length ? <div className="mt-5 grid gap-4">{node.sources.map(renderSourceCard)}</div> : null}
@@ -319,16 +332,21 @@ export default function SourcesPage() {
   return (
     <PageFrame
       title="来源管理"
-      subtitle="这里专门管理公众号来源的分组、标签和备注。新建来源和同步行为放在采集页面。"
+      subtitle="这里只管理公众号来源的身份信息、分组、标签和健康状态。来源添加和文章获取分别放在独立页面。"
       actions={
-        <Link href="/collect">
-          <ActionButton variant="ghost">前往公众号采集</ActionButton>
-        </Link>
+        <>
+          <Link href="/sources/add">
+            <ActionButton variant="solid">添加公众号来源</ActionButton>
+          </Link>
+          <Link href="/collect">
+            <ActionButton variant="ghost">前往文章获取</ActionButton>
+          </Link>
+        </>
       }
     >
       <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-          <SectionTitle title="分组目录" subtitle="一个公众号只属于一个分组，分组支持多级路径。" />
+          <SectionTitle title="分组目录" subtitle="一个公众号只能属于一个分组，分组支持多级路径。" />
           <div className="space-y-3">
             <button
               type="button"
@@ -376,7 +394,7 @@ export default function SourcesPage() {
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
           <SectionTitle
             title={selectedGroup === GROUP_ALL ? "全部来源" : selectedGroup === GROUP_UNGROUPED ? "未分组来源" : selectedNode?.path ?? "来源"}
-            subtitle="卡片上只显示标签；分组通过所在位置表达。"
+            subtitle="来源页只展示来源身份和健康状态；凭据更新与文章同步在“文章获取”页面。"
           />
           {message ? <p className="mb-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">{message}</p> : null}
           {sources.isLoading ? (
@@ -393,7 +411,7 @@ export default function SourcesPage() {
                 {grouped.roots.map((node) => renderGroup(node))}
               </div>
             ) : (
-              <EmptyState title="暂无来源" description="先去采集页面添加公众号来源，再回来整理分组和标签。" />
+              <EmptyState title="暂无来源" description="先去“添加公众号来源”页面创建来源，再回到这里整理分组和标签。" />
             )
           ) : selectedGroup === GROUP_UNGROUPED ? (
             grouped.ungrouped.length ? (

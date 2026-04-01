@@ -11,7 +11,9 @@ from src.schemas.common import IDSchema, SchemaBase, TimestampSchema
 class ArticleSourceCreate(SchemaBase):
     name: str
     source_type: str = "wechat_public_account"
-    source_identifier: str
+    biz: str
+    public_home_link: str | None = None
+    credential_link: str
     source_group: str | None = None
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
@@ -20,8 +22,6 @@ class ArticleSourceCreate(SchemaBase):
 
 class ArticleSourceUpdate(SchemaBase):
     name: str | None = None
-    source_type: str | None = None
-    source_identifier: str | None = None
     source_group: str | None = None
     tags: list[str] | None = None
     description: str | None = None
@@ -37,12 +37,48 @@ class ArticleSourceDeleteRead(SchemaBase):
 class ArticleSourceRead(IDSchema, TimestampSchema):
     name: str
     source_type: str
-    source_identifier: str
+    biz: str
+    public_home_link: str
     source_group: str | None = None
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
     enabled: bool
+    credential_status: str
+    last_verified_at: datetime | None = None
+    last_sync_succeeded_at: datetime | None = None
+    last_sync_failed_at: datetime | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+    credential: "SourceCredentialRead | None" = None
 
+
+class SourceCredentialRead(IDSchema, TimestampSchema):
+    source_id: str
+    provider: str
+    raw_link: str
+    token_biz: str
+    uin: str
+    appmsg_token: str | None = None
+    session_us: str | None = None
+    scene: str | None = None
+    username: str | None = None
+
+
+class SourceCredentialUpdate(SchemaBase):
+    raw_link: str
+    validate_after_update: bool = True
+
+
+class SourceCredentialCheckRead(SchemaBase):
+    source_id: str
+    source_name: str
+    valid: bool
+    credential_status: str
+    needs_refresh: bool = False
+    error_code: str | None = None
+    error_message: str | None = None
+    last_verified_at: datetime | None = None
+    message: str
 
 class ArticleMetricRead(SchemaBase):
     read_count: int | None = None
@@ -108,3 +144,6 @@ class ArticleBatchDeletePayload(SchemaBase):
 class ArticleBatchDeleteRead(SchemaBase):
     deleted_count: int
     deleted_ids: list[str] = Field(default_factory=list)
+
+ArticleSourceRead.model_rebuild()
+ArticleRead.model_rebuild()

@@ -14,22 +14,60 @@ function getParam(url: string, key: string) {
   }
 }
 
-export function summarizeWechatSourceIdentifier(identifier: string) {
-  const biz = getParam(identifier, "__biz");
-  const action = getParam(identifier, "action");
-  if (identifier.includes("profile_ext")) {
-    const actionLabel = action === "report" ? "report token" : action === "urlcheck" ? "urlcheck" : "profile_ext";
-    return biz ? `${actionLabel} · biz ${short(biz)}` : actionLabel;
+export function summarizeWechatCredentialLink(rawLink?: string | null) {
+  if (!rawLink) {
+    return "尚未绑定来源凭据";
   }
-  if (identifier.includes("mp.weixin.qq.com/s")) {
-    return biz ? `article link · biz ${short(biz)}` : "article link";
+  const biz = getParam(rawLink, "__biz");
+  const action = getParam(rawLink, "action");
+  if (rawLink.includes("profile_ext")) {
+    const actionLabel =
+      action === "report" ? "report 凭据" : action === "urlcheck" ? "urlcheck 凭据" : "profile_ext 凭据";
+    return biz ? `${actionLabel} / biz ${short(biz)}` : actionLabel;
   }
-  if (identifier.includes("action=home")) {
-    return biz ? `home link · biz ${short(biz)}` : "home link";
-  }
-  return "wechat source";
+  return "公众号凭据";
 }
 
-export function isDeleteableWechatSource(identifier: string) {
-  return identifier.includes("mp.weixin.qq.com");
+export function summarizeWechatHomeLink(homeLink?: string | null, biz?: string | null) {
+  if (homeLink?.includes("action=home")) {
+    const homeBiz = getParam(homeLink, "__biz") || biz || "";
+    return homeBiz ? `主页链接 / biz ${short(homeBiz)}` : "主页链接";
+  }
+  if (biz) {
+    return `biz ${short(biz)}`;
+  }
+  return "公众号来源";
+}
+
+export function credentialStatusLabel(status: string) {
+  switch (status) {
+    case "valid":
+      return "可用";
+    case "refresh_required":
+      return "需刷新凭据";
+    case "invalid":
+      return "凭据无效";
+    default:
+      return "待验证";
+  }
+}
+
+export function formatDateTimeShanghai(value?: string | null) {
+  if (!value) {
+    return "--";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.replace("T", " ").slice(0, 19);
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(parsed);
 }

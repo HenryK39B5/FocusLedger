@@ -33,6 +33,23 @@ export function useSources() {
   });
 }
 
+export function useIngestionJobs(options?: { sourceId?: string; limit?: number; refetchInterval?: number | false }) {
+  return useQuery({
+    queryKey: ["ingestion-jobs", options?.sourceId ?? "all", options?.limit ?? 50],
+    queryFn: () => api.ingestionJobs({ sourceId: options?.sourceId, limit: options?.limit ?? 50 }),
+    refetchInterval: options?.refetchInterval ?? false,
+  });
+}
+
+export function useIngestionJob(jobId: string | null, options?: { refetchInterval?: number | false }) {
+  return useQuery({
+    queryKey: ["ingestion-job", jobId ?? ""],
+    queryFn: () => api.ingestionJob(jobId as string),
+    enabled: Boolean(jobId),
+    refetchInterval: options?.refetchInterval ?? false,
+  });
+}
+
 export function useArticle(articleId: string) {
   return useQuery({
     queryKey: ["article", articleId],
@@ -99,6 +116,22 @@ export function useMutations() {
         await queryClient.invalidateQueries({ queryKey: ["sources"] });
       },
     }),
+    updateSourceCredential: useMutation({
+      mutationFn: ({ sourceId, rawLink, validateAfterUpdate = true }: { sourceId: string; rawLink: string; validateAfterUpdate?: boolean }) =>
+        api.updateSourceCredential(sourceId, {
+          raw_link: rawLink,
+          validate_after_update: validateAfterUpdate,
+        }),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
+    verifySourceCredential: useMutation({
+      mutationFn: (sourceId: string) => api.verifySourceCredential(sourceId),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
     deleteSource: useMutation({
       mutationFn: (sourceId: string) => api.deleteSource(sourceId),
       onSuccess: async () => {
@@ -131,6 +164,14 @@ export function useMutations() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
         await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
+    createIngestionJob: useMutation({
+      mutationFn: (payload: { sourceId: string; pageStart?: number; pageEnd?: number; sinceDays?: number | null }) =>
+        api.createIngestionJob(payload),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["ingestion-jobs"] });
         await queryClient.invalidateQueries({ queryKey: ["sources"] });
       },
     }),

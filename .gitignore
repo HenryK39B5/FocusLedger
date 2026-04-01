@@ -1,4 +1,5 @@
 .DS_Store
+.claude/
 .env
 .env.*
 !.env.example
@@ -27,3 +28,5 @@ uploads/
 *.sqlite
 *.db
 _ref_Access_wechat_article/
+tools/**/bin/
+tools/**/obj/

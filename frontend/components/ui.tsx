@@ -6,6 +6,7 @@ import {
   Database,
   FileText,
   FolderKanban,
+  FolderPlus,
   Rss,
   Settings2,
   Sparkles,
@@ -25,7 +26,8 @@ export function Sidebar() {
   const items = [
     { href: "/", label: "总览", icon: Database },
     { href: "/sources", label: "来源管理", icon: FolderKanban },
-    { href: "/collect", label: "公众号采集", icon: Rss },
+    { href: "/sources/add", label: "添加来源", icon: FolderPlus },
+    { href: "/collect", label: "文章获取", icon: Rss },
     { href: "/articles", label: "文章浏览", icon: BookOpen },
     { href: "/reports", label: "日报生成", icon: FileText },
     { href: "/status", label: "系统状态", icon: Settings2 },
@@ -36,10 +38,10 @@ export function Sidebar() {
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
         <p className="text-xs uppercase tracking-[0.35em] text-white/50">FocusLedger</p>
         <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl leading-tight text-white">
-          面向公众号的信息研究台
+          面向公众号的本地研究工具
         </h1>
         <p className="mt-3 text-sm leading-6 text-white/60">
-          只关注公众号来源的采集、整理、浏览与日报输出。来源管理、文章管理和日报生成各自独立，便于持续维护。
+          只聚焦来源维护、文章同步、内容整理、文章浏览和日报输出。来源管理、来源添加、文章获取彼此独立，方便持续维护。
         </p>
       </div>
 
@@ -62,7 +64,7 @@ export function Sidebar() {
           处理说明
         </div>
         <p className="mt-2 leading-6">
-          文章摘要、标签和日报优先走 LLM。LLM 不可用时会自动回退到规则版，不会阻断采集和浏览。
+          摘要、标签和日报优先使用 LLM。当前网络策略保持严格 TLS 校验；捕获 helper 只在刷新凭据时短暂运行，并在文章同步与 LLM 分析开始前自动退出。
         </p>
       </div>
     </aside>

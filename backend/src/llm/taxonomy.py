@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 import re
 
-TAXONOMY_VERSION = "finance-v2"
+TAXONOMY_VERSION = "finance-v4"
 
 TOPIC_TAGS = [
     "macro/政策",
@@ -97,16 +97,18 @@ CONTENT_TYPES = [
 CONTENT_TYPE_SET = set(CONTENT_TYPES)
 
 _TOPIC_RULES: list[tuple[tuple[str, ...], list[str]]] = [
-    (("降准", "降息", "LPR", "MLF", "央行", "公开市场", "回购利率", "货币政策"), ["macro/政策", "macro/流动性"]),
+    (("降准", "降息", "lpr", "mlf", "央行", "公开市场", "逆回购", "货币政策"), ["macro/政策", "macro/流动性"]),
     (("利率", "收益率", "国债", "美债", "信用利差", "债券"), ["macro/利率", "asset/债券"]),
     (("汇率", "美元指数", "人民币", "外汇"), ["macro/汇率", "asset/外汇"]),
-    (("CPI", "PPI", "PMI", "GDP", "社融", "信贷", "就业", "出口", "进口"), ["macro/数据", "macro/增长"]),
-    (("股票", "A股", "港股", "美股", "ETF", "基金"), ["asset/股票", "asset/基金"]),
+    (("cpi", "ppi", "pmi", "gdp", "社融", "信贷", "就业", "出口", "进口"), ["macro/数据", "macro/增长"]),
+    (("通胀", "通缩", "物价"), ["macro/通胀"]),
+    (("美联储", "鲍威尔", "fomc"), ["macro/利率", "region/美国"]),
+    (("股票", "a股", "港股", "美股", "etf", "基金"), ["asset/股票", "asset/基金"]),
     (("财报", "业绩", "营收", "利润", "净利", "业绩预告", "报表"), ["event/财报", "risk/业绩"]),
     (("公告", "分红", "回购", "派息", "现金流"), ["event/公告", "theme/分红", "theme/回购"]),
     (("访谈", "采访", "对话", "圆桌", "问答"), ["event/访谈", "style/访谈"]),
     (("调研", "路演", "会议", "峰会", "论坛"), ["event/调研", "event/会议"]),
-    (("AI", "人工智能", "大模型", "算力", "GPU", "芯片", "推理"), ["sector/科技", "theme/AI", "theme/大模型", "sector/半导体"]),
+    (("ai", "人工智能", "大模型", "算力", "gpu", "芯片", "推理"), ["sector/科技", "theme/AI", "theme/大模型", "sector/半导体"]),
     (("互联网", "平台", "电商", "社交", "流量", "内容平台"), ["sector/互联网"]),
     (("银行", "保险", "券商", "信托", "资管"), ["sector/金融"]),
     (("消费", "零售", "品牌", "食品", "饮料", "家电"), ["sector/消费"]),
@@ -114,15 +116,17 @@ _TOPIC_RULES: list[tuple[tuple[str, ...], list[str]]] = [
     (("制造", "工业", "设备", "机器人", "自动化"), ["sector/制造"]),
     (("地产", "房企", "楼市", "房地产"), ["sector/地产"]),
     (("能源", "油价", "天然气", "煤炭", "电力"), ["sector/能源", "asset/商品"]),
+    (("原油", "布伦特", "wti"), ["asset/商品", "sector/能源"]),
     (("军工", "国防", "航空航天"), ["sector/军工"]),
-    (("汽车", "新能源车", "车企", "电动车"), ["sector/汽车", "sector/新能源"]),
+    (("汽车", "新能源汽车", "车企", "电动车"), ["sector/汽车", "sector/新能源"]),
     (("光伏", "储能", "风电", "锂电"), ["sector/新能源"]),
-    (("估值", "PE", "PB", "折价", "溢价"), ["risk/估值"]),
+    (("估值", "pe", "pb", "折价", "溢价"), ["risk/估值"]),
     (("地缘", "冲突", "制裁", "关税", "贸易摩擦"), ["risk/地缘", "risk/政策"]),
     (("竞争", "份额", "替代", "格局", "壁垒"), ["risk/竞争"]),
     (("国产替代", "自主可控"), ["theme/国产替代", "theme/自主可控"]),
     (("供给侧", "产能", "库存"), ["theme/供给侧"]),
     (("出海", "海外收入", "全球化"), ["theme/出海", "theme/全球化", "region/新兴市场"]),
+    (("新兴市场", "em"), ["region/新兴市场"]),
     (("高股息", "股息率"), ["theme/高股息", "theme/分红"]),
 ]
 
@@ -208,11 +212,8 @@ def _dedupe_preserve(items: list[str], limit: int) -> list[str]:
 def suggest_topic_tags(text: str, limit: int = 8) -> list[str]:
     picks = _apply_rules(text, _TOPIC_RULES, limit)
     if picks:
-      return normalize_tag_items(picks, allowed=TOPIC_TAG_SET, limit=limit)
-
-    tokens = re.findall(r"[\u4e00-\u9fffA-Za-z0-9_]+", text)
-    counts = Counter(token for token in tokens if len(token) > 1)
-    return _dedupe_preserve([token for token, _ in counts.most_common(limit * 2)], limit)
+        return normalize_tag_items(picks, allowed=TOPIC_TAG_SET, limit=limit)
+    return []
 
 
 def suggest_style_tags(text: str, limit: int = 4) -> list[str]:
@@ -221,6 +222,8 @@ def suggest_style_tags(text: str, limit: int = 4) -> list[str]:
         picks.insert(0, "style/深度研究")
     if len(text) < 500 and "style/快讯" not in picks and "style/复盘" not in picks:
         picks.insert(0, "style/快讯")
+    if "style/结构化" not in picks:
+        picks.append("style/结构化")
     return normalize_tag_items(picks, allowed=STYLE_TAG_SET, limit=limit)
 
 
@@ -244,22 +247,22 @@ def suggest_content_type(text: str) -> str:
 
 
 def extract_entity_tags(text: str, limit: int = 8) -> list[str]:
-    candidates = re.findall(r"[\u4e00-\u9fffA-Za-z0-9_.&·-]{2,}", text)
+    candidates = re.findall(r"[\u4e00-\u9fffA-Za-z0-9_.&路-]{2,}", text)
     filtered: list[str] = []
     for candidate in candidates:
-      if candidate.isdigit():
-        continue
-      if candidate in TOPIC_TAGS:
-        continue
-      if candidate.lower() in {"the", "and", "with", "from"}:
-        continue
-      filtered.append(candidate)
+        if candidate.isdigit():
+            continue
+        if candidate in TOPIC_TAGS:
+            continue
+        if candidate.lower() in {"the", "and", "with", "from"}:
+            continue
+        filtered.append(candidate)
     counts = Counter(filtered)
     return _dedupe_preserve([item for item, _ in counts.most_common(limit * 2)], limit)
 
 
 def suggest_core_claims(text: str, limit: int = 4) -> list[str]:
-    sentences = [line.strip() for line in re.split(r"[。！？!?]\s*", text) if line.strip()]
+    sentences = [line.strip() for line in re.split(r"[。！？；!?]\s*", text) if line.strip()]
     return [sentence[:120] for sentence in sentences[:limit]]
 
 
@@ -291,9 +294,9 @@ def taxonomy_prompt_block() -> str:
     style = "、".join(STYLE_TAGS)
     content = "、".join(CONTENT_TYPES)
     return (
-        "可用 topic_tags 只能从下列财经标签体系中选择，使用命名空间格式，尽量控制在 3 到 8 个：\n"
+        "可用的 topic_tags 只能从下列财经标签体系中选择，尽量控制在 3 到 8 个：\n"
         f"{topic}\n\n"
-        "可用 style_tags 只能从下列样式标签中选择，尽量控制在 1 到 3 个：\n"
+        "可用的 style_tags 只能从下列样式标签中选择，尽量控制在 1 到 3 个：\n"
         f"{style}\n\n"
         "content_type 只能从下列类型中选择 1 个：\n"
         f"{content}\n"
