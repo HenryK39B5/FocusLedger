@@ -4,12 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.api.deps import db_session
+from src.core.config import get_settings
 from src.schemas.content import (
+    ArticleBatchAnalyzeRead,
+    ArticleBatchAnalyzeQueryPayload,
     ArticleBatchDeletePayload,
     ArticleBatchDeleteRead,
     ArticleDeleteRead,
     ArticleListRead,
     ArticleRead,
+    ArticleUpdate,
 )
 from src.services.articles import ArticleService
 
@@ -27,9 +31,13 @@ def list_articles(
     sort: str = "latest",
     date_from: str | None = None,
     date_to: str | None = None,
+    llm_status: str | None = None,
+    favorited_only: bool = False,
+    tags: str | None = None,
     db: Session = Depends(db_session),
 ):
     safe_page_size = page_size or limit
+    parsed_tags = [item.strip() for item in (tags or "").split(",") if item.strip()]
     articles, total = article_service.list_articles(
         db,
         limit=limit,
@@ -40,6 +48,9 @@ def list_articles(
         sort=sort,
         date_from=date_from,
         date_to=date_to,
+        llm_status=llm_status,
+        favorited_only=favorited_only,
+        tags=parsed_tags,
     )
     return ArticleListRead(
         items=article_service.to_summary_rows(articles),
@@ -55,6 +66,33 @@ def get_article(article_id: str, db: Session = Depends(db_session)):
     if not article:
         raise HTTPException(status_code=404, detail="article not found")
     return article
+
+
+@router.put("/{article_id}", response_model=ArticleRead)
+def update_article(article_id: str, payload: ArticleUpdate, db: Session = Depends(db_session)):
+    article = article_service.get_article(db, article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="article not found")
+    article = article_service.update_article(db, article, payload)
+    db.commit()
+    return article_service.get_article(db, article_id)
+
+
+@router.post("/{article_id}/analyze", response_model=ArticleRead)
+def analyze_article(article_id: str, db: Session = Depends(db_session)):
+    article = article_service.get_article(db, article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="article not found")
+    try:
+        article = article_service.analyze_article(db, get_settings(), article)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"LLM analyze failed: {exc}") from exc
+    db.commit()
+    return article_service.get_article(db, article_id)
 
 
 @router.delete("/{article_id}", response_model=ArticleDeleteRead)
@@ -73,3 +111,43 @@ def batch_delete_articles(payload: ArticleBatchDeletePayload, db: Session = Depe
     deleted_ids = article_service.batch_delete_articles(db, payload.article_ids)
     db.commit()
     return ArticleBatchDeleteRead(deleted_count=len(deleted_ids), deleted_ids=deleted_ids)
+
+
+@router.post("/batch-analyze", response_model=ArticleBatchAnalyzeRead)
+def batch_analyze_articles(payload: ArticleBatchDeletePayload, db: Session = Depends(db_session)):
+    analyzed_ids, failed_ids = article_service.batch_analyze_articles(db, get_settings(), payload.article_ids)
+    db.commit()
+    return ArticleBatchAnalyzeRead(
+        analyzed_count=len(analyzed_ids),
+        analyzed_ids=analyzed_ids,
+        failed_ids=failed_ids,
+    )
+
+
+@router.post("/batch-analyze-query", response_model=ArticleBatchAnalyzeRead)
+def batch_analyze_articles_by_query(payload: ArticleBatchAnalyzeQueryPayload, db: Session = Depends(db_session)):
+    try:
+        analyzed_ids, failed_ids = article_service.batch_analyze_articles_by_query(
+            db,
+            get_settings(),
+            source_id=payload.source_id,
+            q=payload.q,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+            favorited_only=payload.favorited_only,
+            tags=payload.tags,
+            max_items=payload.max_items,
+            target=payload.target,
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"LLM analyze failed: {exc}") from exc
+    db.commit()
+    return ArticleBatchAnalyzeRead(
+        analyzed_count=len(analyzed_ids),
+        analyzed_ids=analyzed_ids,
+        failed_ids=failed_ids,
+    )

@@ -1,5 +1,6 @@
 import type {
   Article,
+  ArticleBatchAnalyzeResult,
   ArticleBatchDeleteResult,
   ArticleDeleteResult,
   ArticleList,
@@ -9,6 +10,7 @@ import type {
   IngestionJob,
   IngestionJobList,
   IngestionResult,
+  SourceBatchAnalyzeResult,
   SourceCredentialCheckResult,
   WechatHomeLinkResolveResult,
 } from "@/lib/types";
@@ -56,6 +58,9 @@ export const api = {
     sort?: string;
     dateFrom?: string;
     dateTo?: string;
+    llmStatus?: string;
+    favoritedOnly?: boolean;
+    tags?: string[];
   }) => {
     const params = new URLSearchParams();
     params.set("limit", String(options?.limit ?? 20));
@@ -66,9 +71,24 @@ export const api = {
     if (options?.sort) params.set("sort", options.sort);
     if (options?.dateFrom) params.set("date_from", options.dateFrom);
     if (options?.dateTo) params.set("date_to", options.dateTo);
+    if (options?.llmStatus) params.set("llm_status", options.llmStatus);
+    if (options?.favoritedOnly) params.set("favorited_only", "true");
+    if (options?.tags?.length) params.set("tags", options.tags.join(","));
     return apiFetch<ArticleList>(`/api/v1/articles?${params.toString()}`);
   },
   article: (id: string) => apiFetch<Article>(`/api/v1/articles/${id}`),
+  updateArticle: (
+    id: string,
+    payload: { tags?: string[]; is_favorited?: boolean },
+  ) =>
+    apiFetch<Article>(`/api/v1/articles/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  analyzeArticle: (id: string) =>
+    apiFetch<Article>(`/api/v1/articles/${id}/analyze`, {
+      method: "POST",
+    }),
   deleteArticle: (id: string) =>
     apiFetch<ArticleDeleteResult>(`/api/v1/articles/${id}`, {
       method: "DELETE",
@@ -77,6 +97,34 @@ export const api = {
     apiFetch<ArticleBatchDeleteResult>("/api/v1/articles/batch-delete", {
       method: "POST",
       body: JSON.stringify({ article_ids: articleIds }),
+    }),
+  batchAnalyzeArticles: (articleIds: string[]) =>
+    apiFetch<ArticleBatchAnalyzeResult>("/api/v1/articles/batch-analyze", {
+      method: "POST",
+      body: JSON.stringify({ article_ids: articleIds }),
+    }),
+  batchAnalyzeArticlesByQuery: (payload: {
+    sourceId?: string;
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    favoritedOnly?: boolean;
+    tags?: string[];
+    maxItems?: number;
+    target?: string;
+  }) =>
+    apiFetch<ArticleBatchAnalyzeResult>("/api/v1/articles/batch-analyze-query", {
+      method: "POST",
+      body: JSON.stringify({
+        source_id: payload.sourceId ?? null,
+        q: payload.q ?? null,
+        date_from: payload.dateFrom ?? null,
+        date_to: payload.dateTo ?? null,
+        favorited_only: payload.favoritedOnly ?? false,
+        tags: payload.tags ?? [],
+        max_items: payload.maxItems ?? 100,
+        target: payload.target ?? "pending",
+      }),
     }),
   sources: () => apiFetch<ArticleSource[]>("/api/v1/sources"),
   createSource: (payload: Record<string, unknown>) =>
@@ -93,6 +141,15 @@ export const api = {
     apiFetch<ArticleSource>(`/api/v1/sources/${sourceId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
+    }),
+  analyzeSource: (sourceId: string) =>
+    apiFetch<ArticleSource>(`/api/v1/sources/${sourceId}/analyze`, {
+      method: "POST",
+    }),
+  batchAnalyzeSources: (sourceIds: string[]) =>
+    apiFetch<SourceBatchAnalyzeResult>("/api/v1/sources/batch-analyze", {
+      method: "POST",
+      body: JSON.stringify({ source_ids: sourceIds }),
     }),
   updateSourceCredential: (sourceId: string, payload: { raw_link: string; validate_after_update?: boolean }) =>
     apiFetch<ArticleSource>(`/api/v1/sources/${sourceId}/credential`, {
@@ -135,4 +192,5 @@ export const api = {
   },
   ingestionJob: (jobId: string) => apiFetch<IngestionJob>(`/api/v1/ingestion-jobs/${jobId}`),
   status: () => apiFetch<Record<string, unknown>>("/api/v1/system/status"),
+  articleTagTaxonomy: () => apiFetch<{ tags: string[] }>("/api/v1/system/taxonomies/article-tags"),
 };

@@ -40,6 +40,12 @@ export type ArticleSourceDeleteResult = {
   deleted_article_count: number;
 };
 
+export type SourceBatchAnalyzeResult = {
+  analyzed_count: number;
+  analyzed_ids: string[];
+  failed_ids: string[];
+};
+
 export type ArticleMetric = {
   read_count?: number | null;
   like_count?: number | null;
@@ -57,10 +63,15 @@ export type ArticleSummary = {
   publish_time?: string | null;
   created_at: string;
   summary?: string | null;
+  tags: string[];
+  all_tags: string[];
   topic_tags: string[];
   style_tags: string[];
   source_tags: string[];
   source_group?: string | null;
+  content_type?: string | null;
+  is_favorited: boolean;
+  llm_summary_status: string;
 };
 
 export type Article = {
@@ -73,6 +84,8 @@ export type Article = {
   raw_html_path?: string | null;
   raw_text?: string | null;
   summary?: string | null;
+  tags: string[];
+  all_tags: string[];
   topic_tags: string[];
   entity_tags: string[];
   content_type?: string | null;
@@ -82,6 +95,10 @@ export type Article = {
   risks: string[];
   style_tags: string[];
   metadata_json: Record<string, unknown>;
+  is_favorited: boolean;
+  llm_summary_status: string;
+  llm_summary_updated_at?: string | null;
+  llm_summary_error?: string | null;
   source?: ArticleSource | null;
   metrics: ArticleMetric[];
   created_at: string;
@@ -192,6 +209,12 @@ export type ArticleDeleteResult = {
 export type ArticleBatchDeleteResult = {
   deleted_count: number;
   deleted_ids: string[];
+};
+
+export type ArticleBatchAnalyzeResult = {
+  analyzed_count: number;
+  analyzed_ids: string[];
+  failed_ids: string[];
 };
 
 export type WechatHomeLinkResolveResult = {

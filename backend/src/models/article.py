@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, JSON, String, Text
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base, IDMixin, TimestampMixin
@@ -27,7 +29,24 @@ class Article(Base, IDMixin, TimestampMixin):
     style_tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     recommendation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_favorited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    llm_summary_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    llm_summary_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    llm_summary_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source = relationship("ArticleSource", lazy="joined")
     metrics = relationship("ArticleMetrics", back_populates="article", cascade="all, delete-orphan")
     embeddings = relationship("ArticleEmbedding", back_populates="article", cascade="all, delete-orphan")
+
+    @property
+    def tags(self) -> list[str]:
+        return list(self.topic_tags or [])
+
+    @property
+    def all_tags(self) -> list[str]:
+        merged: list[str] = []
+        for tag in [*(self.topic_tags or []), *((self.source.tags if self.source else []) or [])]:
+            value = str(tag).strip()
+            if value and value not in merged:
+                merged.append(value)
+        return merged

@@ -25,8 +25,8 @@ export function Shell({ children }: { children: ReactNode }) {
 export function Sidebar() {
   const items = [
     { href: "/", label: "总览", icon: Database },
-    { href: "/sources", label: "来源管理", icon: FolderKanban },
     { href: "/sources/add", label: "添加来源", icon: FolderPlus },
+    { href: "/sources", label: "来源管理", icon: FolderKanban },
     { href: "/collect", label: "文章获取", icon: Rss },
     { href: "/articles", label: "文章浏览", icon: BookOpen },
     { href: "/reports", label: "日报生成", icon: FileText },
@@ -35,14 +35,22 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-black/15 px-5 py-6 backdrop-blur xl:block">
-      <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
-        <p className="text-xs uppercase tracking-[0.35em] text-white/50">FocusLedger</p>
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl leading-tight text-white">
-          面向公众号的本地研究工具
+      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03))] p-5 shadow-glow">
+        <p className="text-[11px] uppercase tracking-[0.4em] text-white/45">FocusLedger</p>
+        <h1 className="mt-4 font-[family-name:var(--font-display)] text-[2rem] leading-[1.15] text-white">
+          公众号研究台
         </h1>
-        <p className="mt-3 text-sm leading-6 text-white/60">
-          只聚焦来源维护、文章同步、内容整理、文章浏览和日报输出。来源管理、来源添加、文章获取彼此独立，方便持续维护。
+        <p className="mt-3 max-w-[18rem] text-sm leading-6 text-white/58">
+          把来源、文章、标签和日报放进同一套本地工作流。
         </p>
+        <div className="mt-5 grid gap-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-xs text-white/62">
+            先同步，再整理，再输出。
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white/52">
+            当前主线：文章管理、标签体系、Notebook 化工作区。
+          </div>
+        </div>
       </div>
 
       <nav className="mt-8 space-y-2">
@@ -61,10 +69,10 @@ export function Sidebar() {
       <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
         <div className="flex items-center gap-2 text-white/85">
           <Sparkles size={14} />
-          处理说明
+          当前模式
         </div>
         <p className="mt-2 leading-6">
-          摘要、标签和日报优先使用 LLM。当前网络策略保持严格 TLS 校验；捕获 helper 只在刷新凭据时短暂运行，并在文章同步与 LLM 分析开始前自动退出。
+          凭据更新维持手动流程。当前更重要的能力是文章整理、标签管理、研究工作区和日报输出。
         </p>
       </div>
     </aside>

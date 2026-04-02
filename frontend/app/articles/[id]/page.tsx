@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowLeft, ExternalLink, Save, Sparkles, Star, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useArticle, useMutations } from "@/lib/queries";
-import { ActionButton, EmptyState, PageFrame, SectionTitle, TagPills } from "@/components/ui";
+import { ActionButton, EmptyState, Input, Label, PageFrame, SectionTitle, TagPills } from "@/components/ui";
+import { formatDateTimeShanghai } from "@/lib/wechat";
 
 function getMetadataString(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
@@ -31,7 +32,7 @@ function formatTextForDisplay(text: string) {
   const paragraphs: string[] = [];
   let buffer = "";
   for (const line of lines) {
-    const looksComplete = /[。！？；：.!?]$/.test(line) || line.length >= 48;
+    const looksComplete = /[。！？；?!]$/.test(line) || line.length >= 48;
     if (!looksComplete) {
       buffer = buffer ? `${buffer}${line}` : line;
       continue;
@@ -45,10 +46,41 @@ function formatTextForDisplay(text: string) {
   return paragraphs.length ? paragraphs : [normalized];
 }
 
+function parseTags(value: string) {
+  return value
+    .split(/[,\n，]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .filter((tag, index, list) => list.indexOf(tag) === index);
+}
+
+function llmStatusLabel(status: string) {
+  switch (status) {
+    case "completed":
+      return "已总结";
+    case "failed":
+      return "总结失败";
+    case "processing":
+      return "总结中";
+    default:
+      return "未总结";
+  }
+}
+
 export default function ArticleDetailPage() {
   const params = useParams<{ id: string }>();
   const article = useArticle(params.id);
   const mutations = useMutations();
+
+  const [tagsDraft, setTagsDraft] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!article.data) {
+      return;
+    }
+    setTagsDraft((article.data.tags ?? []).join(", "));
+  }, [article.data]);
 
   const paragraphs = useMemo(() => {
     if (!article.data?.raw_text) {
@@ -56,6 +88,13 @@ export default function ArticleDetailPage() {
     }
     return formatTextForDisplay(article.data.raw_text);
   }, [article.data?.raw_text]);
+
+  const summaryParagraphs = useMemo(() => {
+    if (!article.data?.summary) {
+      return [];
+    }
+    return formatTextForDisplay(article.data.summary);
+  }, [article.data?.summary]);
 
   if (article.isLoading) {
     return (
@@ -78,10 +117,46 @@ export default function ArticleDetailPage() {
   const originalUrl = getMetadataString(metadata, "raw_article_url") || data.url;
   const homeLink = getMetadataString(metadata, "public_home_link");
 
+  async function handleSave() {
+    try {
+      await mutations.updateArticle.mutateAsync({
+        articleId: data.id,
+        payload: { tags: parseTags(tagsDraft) },
+      });
+      setMessage("已保存文章标签。");
+      await article.refetch();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "保存文章标签失败");
+    }
+  }
+
+  async function handleToggleFavorite() {
+    try {
+      await mutations.updateArticle.mutateAsync({
+        articleId: data.id,
+        payload: { is_favorited: !data.is_favorited },
+      });
+      setMessage(data.is_favorited ? "已取消收藏。" : "已加入收藏。");
+      await article.refetch();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "更新收藏状态失败");
+    }
+  }
+
+  async function handleAnalyze() {
+    try {
+      await mutations.analyzeArticle.mutateAsync(data.id);
+      setMessage("已完成这篇文章的 LLM 总结。");
+      await article.refetch();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "执行 LLM 总结失败");
+    }
+  }
+
   return (
     <PageFrame
       title="文章详情"
-      subtitle="这里只保留原文链接，不暴露抓取地址和规范化 URL。摘要和正文都按阅读视图展示。"
+      subtitle="摘要只由 LLM 生成；人工只负责补充和修正文章标签。"
       actions={
         <>
           <Link href="/articles">
@@ -90,6 +165,10 @@ export default function ArticleDetailPage() {
               返回文章浏览
             </ActionButton>
           </Link>
+          <ActionButton variant={data.is_favorited ? "solid" : "ghost"} onClick={handleToggleFavorite}>
+            <Star size={14} className={`mr-2 ${data.is_favorited ? "fill-current" : ""}`} />
+            {data.is_favorited ? "取消收藏" : "加入收藏"}
+          </ActionButton>
           <ActionButton
             variant="danger"
             onClick={async () => {
@@ -107,141 +186,158 @@ export default function ArticleDetailPage() {
         </>
       }
     >
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
-        <div className="space-y-6">
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <p className="text-sm text-white/50">{data.source?.name ?? "未知来源"}</p>
-            <h3 className="mt-2 text-3xl font-semibold leading-tight text-white">{data.title}</h3>
-            <p className="mt-4 text-sm text-white/55">
-              作者：{data.author ?? "未知"} · 发布时间：{data.publish_time ?? "未知"}
-            </p>
+      {message ? (
+        <p className="mb-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">{message}</p>
+      ) : null}
 
-            <div className="mt-5">
-              <TagPills items={[...data.topic_tags, ...data.style_tags]} />
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_380px]">
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm text-white/50">{data.source?.name ?? "未知来源"}</p>
+                <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                  {llmStatusLabel(data.llm_summary_status)}
+                </span>
+                {data.is_favorited ? (
+                  <span className="rounded-full border border-[#ffd478]/25 bg-[#ffd478]/10 px-3 py-1 text-xs text-[#ffe0a2]">
+                    已收藏
+                  </span>
+                ) : null}
+              </div>
+
+              <h3 className="mt-3 text-3xl font-semibold leading-tight text-white lg:text-[2.2rem]">{data.title}</h3>
+
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/52">
+                <span>作者：{data.author ?? "未知"}</span>
+                <span>发布时间：{data.publish_time ?? "未知"}</span>
+                <span>最近总结：{formatDateTimeShanghai(data.llm_summary_updated_at)}</span>
+              </div>
+
+              {data.all_tags.length ? (
+                <div className="mt-5">
+                  <TagPills items={data.all_tags} />
+                </div>
+              ) : null}
             </div>
 
-            <div className="mt-6 grid gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm text-white/70 md:grid-cols-2">
-              <div>
-                <p className="text-white/45">原文链接</p>
-                <a
-                  href={originalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex items-center gap-2 text-[#ffd478] hover:underline"
-                >
-                  查看原文
-                  <ExternalLink size={14} />
-                </a>
+            <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Tags</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{data.all_tags.length}</p>
+                  <p className="mt-1 text-xs text-white/45">当前生效标签数</p>
+                </div>
+                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Source</p>
+                  <p className="mt-2 text-sm font-medium text-white">{data.source?.source_group ?? "未分组"}</p>
+                  <p className="mt-1 text-xs text-white/45">来源分组</p>
+                </div>
               </div>
-              <div>
-                <p className="text-white/45">公众号主页</p>
-                {homeLink ? (
+
+              <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Links</p>
+                <div className="mt-3 space-y-3">
                   <a
-                    href={homeLink}
+                    href={originalUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 inline-flex items-center gap-2 text-[#ffd478] hover:underline"
+                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/74 transition hover:border-white/20 hover:bg-black/30"
                   >
-                    打开主页
+                    <span>查看原文</span>
                     <ExternalLink size={14} />
                   </a>
-                ) : (
-                  <p className="mt-1 text-white/60">未提取到主页链接</p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <SectionTitle title="摘要" subtitle="摘要优先来自 LLM 整理；LLM 不可用时回退到规则版摘要。" />
-            <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-              <p className="whitespace-pre-wrap text-sm leading-8 text-white/72">{data.summary ?? "暂无摘要"}</p>
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <SectionTitle
-              title="正文"
-              subtitle="正文优先从微信正文区提取，再经过清洗与分段。旧文章如果还没回填，页面也会做一次轻量排版。"
-            />
-            <div className="rounded-[28px] border border-white/10 bg-[#0b1220]/80 px-6 py-7">
-              {paragraphs.length ? (
-                <div className="mx-auto max-w-4xl space-y-6">
-                  {paragraphs.map((paragraph, index) => (
-                    <p key={index} className="text-[15px] leading-8 text-white/78">
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-white/60">暂无正文文本</p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        <div className="space-y-6">
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-            <SectionTitle title="结构化信息" subtitle="文章标签和关键信息会集中展示在这里。" />
-            <div className="space-y-4 text-sm text-white/70">
-              <div>
-                <p className="text-white">内容类型</p>
-                <p className="mt-2">{data.content_type ?? "未识别"}</p>
-              </div>
-              <div>
-                <p className="text-white">主题标签</p>
-                <div className="mt-3">
-                  <TagPills items={data.topic_tags} />
-                </div>
-              </div>
-              <div>
-                <p className="text-white">实体标签</p>
-                <div className="mt-3">
-                  <TagPills items={data.entity_tags} />
-                </div>
-              </div>
-              <div>
-                <p className="text-white">核心观点</p>
-                <div className="mt-3 space-y-2">
-                  {data.core_claims.length ? (
-                    data.core_claims.map((claim, index) => (
-                      <p key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                        {claim}
-                      </p>
-                    ))
+                  {homeLink ? (
+                    <a
+                      href={homeLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/74 transition hover:border-white/20 hover:bg-black/30"
+                    >
+                      <span>打开公众号主页</span>
+                      <ExternalLink size={14} />
+                    </a>
                   ) : (
-                    <p className="text-white/55">暂无提取结果</p>
+                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/48">
+                      未提取到主页链接
+                    </div>
                   )}
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <div className="space-y-6">
+          <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+            <SectionTitle title="LLM 总结" subtitle="把总结单独控制，不再和抓取流程耦合。" />
+            <div className="space-y-4 text-sm text-white/70">
+              <div className="grid gap-3 rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <p>当前状态：{llmStatusLabel(data.llm_summary_status)}</p>
+                <p>最近总结时间：{formatDateTimeShanghai(data.llm_summary_updated_at)}</p>
+                <p>最近错误：{data.llm_summary_error ?? "--"}</p>
+              </div>
+              <ActionButton variant="solid" onClick={handleAnalyze} disabled={mutations.analyzeArticle.isPending}>
+                <Sparkles size={14} className="mr-2" />
+                {mutations.analyzeArticle.isPending
+                  ? "总结中..."
+                  : data.llm_summary_status === "completed"
+                    ? "重新执行 LLM 总结"
+                    : "执行 LLM 总结"}
+              </ActionButton>
+            </div>
           </section>
 
           <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-            <SectionTitle title="跟踪维度" subtitle="把变量、催化和风险拆开，便于后续日报归纳。" />
-            <div className="space-y-4 text-sm text-white/70">
+            <SectionTitle title="标签整理" subtitle="摘要只读；你可以在这里补充和修正文章标签。" />
+            <div className="space-y-4">
               <div>
-                <p className="text-white">关键变量</p>
-                <div className="mt-3">
-                  <TagPills items={data.key_variables} />
-                </div>
+                <Label>文章标签</Label>
+                <Input value={tagsDraft} onChange={(event) => setTagsDraft(event.target.value)} placeholder="多个标签用逗号分隔" />
               </div>
-              <div>
-                <p className="text-white">催化因素</p>
-                <div className="mt-3">
-                  <TagPills items={data.catalysts} />
-                </div>
-              </div>
-              <div>
-                <p className="text-white">风险项</p>
-                <div className="mt-3">
-                  <TagPills items={data.risks} />
-                </div>
-              </div>
+              <ActionButton variant="solid" onClick={handleSave} disabled={mutations.updateArticle.isPending}>
+                <Save size={14} className="mr-2" />
+                保存标签
+              </ActionButton>
             </div>
           </section>
         </div>
       </div>
+
+      {data.summary ? (
+        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
+          <SectionTitle title="Summary" subtitle="摘要完整展示，只读，不参与手动编辑。" />
+          <div className="rounded-[24px] border border-white/10 bg-black/20 px-5 py-6 sm:px-6">
+            <div className="space-y-4">
+              {summaryParagraphs.map((paragraph, index) => (
+                <p
+                  key={index}
+                  className="whitespace-pre-wrap break-words text-[15px] leading-8 text-white/76 lg:text-[16px] lg:leading-9"
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
+        <SectionTitle title="正文" subtitle="正文独占整行，优先保证阅读宽度。14 寸屏和大屏幕都以阅读舒适度为先。" />
+        <div className="rounded-[28px] border border-white/10 bg-[#0b1220]/80 px-5 py-7 sm:px-7 lg:px-10">
+          {paragraphs.length ? (
+            <div className="mx-auto max-w-[84ch] space-y-6">
+              {paragraphs.map((paragraph, index) => (
+                <p key={index} className="text-[15px] leading-8 text-white/78 lg:text-[16px] lg:leading-9">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-white/60">暂无正文文本</p>
+          )}
+        </div>
+      </section>
     </PageFrame>
   );
 }

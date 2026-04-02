@@ -6,6 +6,9 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from src.core.config import Settings
+from src.llm.providers import build_provider
+from src.llm.taxonomy_files import load_article_tag_taxonomy
 from src.models import (
     Article,
     ArticleEmbedding,
@@ -15,7 +18,7 @@ from src.models import (
     NoveltyAnalysis,
     RecommendationResult,
 )
-from src.schemas.content import ArticleSummaryRead
+from src.schemas.content import ArticleSummaryRead, ArticleUpdate
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -61,6 +64,45 @@ def normalize_publish_date(value: str | None, created_at: datetime | None = None
 
 
 class ArticleService:
+    def _tag_matches(self, article_tags: list[str], selected_tag: str) -> bool:
+        cleaned_selected = str(selected_tag).strip()
+        if not cleaned_selected:
+            return False
+        for raw_tag in self._normalized_tags(article_tags):
+            if raw_tag == cleaned_selected or raw_tag.startswith(f"{cleaned_selected}/"):
+                return True
+        return False
+
+    def _normalized_tags(self, tags: list[str] | None) -> list[str]:
+        if not tags:
+            return []
+        items: list[str] = []
+        for raw in tags:
+            value = str(raw).strip()
+            if value and value not in items:
+                items.append(value)
+        return items
+
+    def _normalized_content_type(self, value: str | None) -> str | None:
+        cleaned = (value or "").strip()
+        return cleaned or None
+
+    def _set_llm_state(
+        self,
+        article: Article,
+        *,
+        status: str,
+        error: str | None = None,
+        updated_at: datetime | None = None,
+    ) -> None:
+        article.llm_summary_status = status
+        article.llm_summary_error = error
+        if updated_at is not None:
+            article.llm_summary_updated_at = updated_at.astimezone(timezone.utc)
+
+    def _set_favorite(self, article: Article, favorited: bool) -> None:
+        article.is_favorited = favorited
+
     def list_articles(
         self,
         db: Session,
@@ -72,6 +114,9 @@ class ArticleService:
         sort: str = "latest",
         date_from: str | None = None,
         date_to: str | None = None,
+        llm_status: str | None = None,
+        favorited_only: bool = False,
+        tags: list[str] | None = None,
     ) -> tuple[list[Article], int]:
         stmt = select(Article).join(ArticleSource, Article.source_id == ArticleSource.id)
         if source_id:
@@ -90,6 +135,7 @@ class ArticleService:
         articles = list(db.scalars(stmt).all())
 
         filtered: list[Article] = []
+        normalized_filter_tags = self._normalized_tags(tags)
         for article in articles:
             publish_date = normalize_publish_date(article.publish_time, article.created_at)
             if date_from and publish_date and publish_date < date_from:
@@ -100,6 +146,14 @@ class ArticleService:
                 continue
             if date_to and not publish_date:
                 continue
+            if llm_status and article.llm_summary_status != llm_status:
+                continue
+            if favorited_only and not article.is_favorited:
+                continue
+            if normalized_filter_tags:
+                article_tags = self._normalized_tags(article.tags)
+                if not all(self._tag_matches(article_tags, tag) for tag in normalized_filter_tags):
+                    continue
             filtered.append(article)
 
         reverse = sort != "oldest"
@@ -145,13 +199,121 @@ class ArticleService:
                 publish_time=normalize_publish_time(article.publish_time, article.created_at),
                 created_at=article.created_at,
                 summary=article.summary,
+                tags=article.tags,
+                all_tags=article.all_tags,
                 topic_tags=article.topic_tags,
                 style_tags=article.style_tags,
                 source_tags=article.source.tags if article.source else [],
                 source_group=article.source.source_group if article.source else None,
+                content_type=article.content_type,
+                is_favorited=article.is_favorited,
+                llm_summary_status=article.llm_summary_status,
             )
             for article in articles
         ]
+
+    def update_article(self, db: Session, article: Article, payload: ArticleUpdate) -> Article:
+        updates = payload.model_dump(exclude_unset=True)
+        if "tags" in updates and updates["tags"] is not None:
+            normalized_tags = self._normalized_tags(updates["tags"])
+            article.topic_tags = normalized_tags
+        if "is_favorited" in updates and updates["is_favorited"] is not None:
+            self._set_favorite(article, bool(updates["is_favorited"]))
+        db.flush()
+        return article
+
+    def analyze_article(self, db: Session, settings: Settings, article: Article) -> Article:
+        text = (article.raw_text or "").strip()
+        if not text:
+            raise ValueError("article has no raw text")
+
+        provider = build_provider(settings)
+        if provider.name == "rule":
+            raise ValueError("LLM provider unavailable; please configure a real LLM API first")
+        now = datetime.now(timezone.utc)
+        allowed_tags = set(load_article_tag_taxonomy())
+
+        self._set_llm_state(article, status="processing", error=None)
+        db.flush()
+
+        try:
+            features = provider.extract_features(text)
+            summary = str(features.get("summary") or "").strip()
+            tags = self._normalized_tags(features.get("topic_tags") or [])
+
+            if allowed_tags:
+                tags = [item for item in tags if item in allowed_tags]
+
+            article.summary = summary or None
+            article.topic_tags = tags
+            self._set_llm_state(article, status="completed", error=None, updated_at=now)
+            db.flush()
+            return article
+        except Exception as exc:
+            self._set_llm_state(article, status="failed", error=str(exc), updated_at=now)
+            db.flush()
+            raise
+
+    def batch_analyze_articles(self, db: Session, settings: Settings, article_ids: list[str]) -> tuple[list[str], list[str]]:
+        cleaned_ids = [article_id.strip() for article_id in article_ids if article_id and article_id.strip()]
+        if not cleaned_ids:
+            return [], []
+
+        articles = list(db.scalars(select(Article).where(Article.id.in_(cleaned_ids))).all())
+        analyzed_ids: list[str] = []
+        failed_ids: list[str] = []
+        for article in articles:
+            try:
+                self.analyze_article(db, settings, article)
+                analyzed_ids.append(article.id)
+            except Exception:
+                failed_ids.append(article.id)
+        return analyzed_ids, failed_ids
+
+    def batch_analyze_articles_by_query(
+        self,
+        db: Session,
+        settings: Settings,
+        *,
+        source_id: str | None = None,
+        q: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        favorited_only: bool = False,
+        tags: list[str] | None = None,
+        max_items: int = 100,
+        target: str = "pending",
+    ) -> tuple[list[str], list[str]]:
+        candidates, _total = self.list_articles(
+            db,
+            source_id=source_id,
+            q=q,
+            page=1,
+            page_size=max(max_items, 1),
+            sort="latest",
+            date_from=date_from,
+            date_to=date_to,
+            favorited_only=favorited_only,
+            tags=tags,
+        )
+        if target == "pending":
+            candidates = [article for article in candidates if article.llm_summary_status == "pending"]
+        elif target == "retryable":
+            candidates = [article for article in candidates if article.llm_summary_status in {"pending", "failed"}]
+        elif target == "all":
+            candidates = list(candidates)
+        else:
+            raise ValueError("invalid batch analyze target")
+
+        analyzed_ids: list[str] = []
+        failed_ids: list[str] = []
+        for article in candidates:
+            try:
+                self.analyze_article(db, settings, article)
+                analyzed_ids.append(article.id)
+            except Exception:
+                failed_ids.append(article.id)
+        return analyzed_ids, failed_ids
 
     def delete_article(self, db: Session, article: Article) -> None:
         db.execute(delete(ArticleEmbedding).where(ArticleEmbedding.article_id == article.id))

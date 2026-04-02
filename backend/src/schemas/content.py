@@ -28,6 +28,16 @@ class ArticleSourceUpdate(SchemaBase):
     enabled: bool | None = None
 
 
+class SourceBatchPayload(SchemaBase):
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class SourceBatchAnalyzeRead(SchemaBase):
+    analyzed_count: int
+    analyzed_ids: list[str] = Field(default_factory=list)
+    failed_ids: list[str] = Field(default_factory=list)
+
+
 class ArticleSourceDeleteRead(SchemaBase):
     source_id: str
     source_name: str
@@ -98,6 +108,8 @@ class ArticleRead(IDSchema, TimestampSchema):
     raw_html_path: str | None = None
     raw_text: str | None = None
     summary: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    all_tags: list[str] = Field(default_factory=list)
     topic_tags: list[str] = Field(default_factory=list)
     entity_tags: list[str] = Field(default_factory=list)
     content_type: str | None = None
@@ -107,6 +119,10 @@ class ArticleRead(IDSchema, TimestampSchema):
     risks: list[str] = Field(default_factory=list)
     style_tags: list[str] = Field(default_factory=list)
     metadata_json: dict[str, Any] = Field(default_factory=dict)
+    is_favorited: bool = False
+    llm_summary_status: str = "pending"
+    llm_summary_updated_at: datetime | None = None
+    llm_summary_error: str | None = None
     source: ArticleSourceRead | None = None
     metrics: list[ArticleMetricRead] = Field(default_factory=list)
 
@@ -119,10 +135,15 @@ class ArticleSummaryRead(SchemaBase):
     publish_time: str | None = None
     created_at: datetime
     summary: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    all_tags: list[str] = Field(default_factory=list)
     topic_tags: list[str] = Field(default_factory=list)
     style_tags: list[str] = Field(default_factory=list)
     source_tags: list[str] = Field(default_factory=list)
     source_group: str | None = None
+    content_type: str | None = None
+    is_favorited: bool = False
+    llm_summary_status: str = "pending"
 
 
 class ArticleListRead(SchemaBase):
@@ -144,6 +165,28 @@ class ArticleBatchDeletePayload(SchemaBase):
 class ArticleBatchDeleteRead(SchemaBase):
     deleted_count: int
     deleted_ids: list[str] = Field(default_factory=list)
+
+
+class ArticleUpdate(SchemaBase):
+    tags: list[str] | None = None
+    is_favorited: bool | None = None
+
+
+class ArticleBatchAnalyzeRead(SchemaBase):
+    analyzed_count: int
+    analyzed_ids: list[str] = Field(default_factory=list)
+    failed_ids: list[str] = Field(default_factory=list)
+
+
+class ArticleBatchAnalyzeQueryPayload(SchemaBase):
+    source_id: str | None = None
+    q: str | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+    favorited_only: bool = False
+    tags: list[str] = Field(default_factory=list)
+    max_items: int = 100
+    target: str = "pending"
 
 ArticleSourceRead.model_rebuild()
 ArticleRead.model_rebuild()

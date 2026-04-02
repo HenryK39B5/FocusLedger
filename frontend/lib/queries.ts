@@ -66,6 +66,9 @@ export function useArticles(options?: {
   sort?: string;
   dateFrom?: string;
   dateTo?: string;
+  llmStatus?: string;
+  favoritedOnly?: boolean;
+  tags?: string[];
 }) {
   return useQuery({
     queryKey: [
@@ -77,6 +80,9 @@ export function useArticles(options?: {
       options?.sort ?? "latest",
       options?.dateFrom ?? "",
       options?.dateTo ?? "",
+      options?.llmStatus ?? "all",
+      options?.favoritedOnly ? "favorited" : "all",
+      (options?.tags ?? []).join("|"),
     ],
     queryFn: () =>
       api.articles({
@@ -88,6 +94,9 @@ export function useArticles(options?: {
         sort: options?.sort ?? "latest",
         dateFrom: options?.dateFrom,
         dateTo: options?.dateTo,
+        llmStatus: options?.llmStatus,
+        favoritedOnly: options?.favoritedOnly,
+        tags: options?.tags,
       }),
   });
 }
@@ -96,6 +105,13 @@ export function useStatus() {
   return useQuery({
     queryKey: ["status"],
     queryFn: () => api.status(),
+  });
+}
+
+export function useArticleTagTaxonomy() {
+  return useQuery({
+    queryKey: ["article-tag-taxonomy"],
+    queryFn: () => api.articleTagTaxonomy(),
   });
 }
 
@@ -112,6 +128,18 @@ export function useMutations() {
     updateSource: useMutation({
       mutationFn: ({ sourceId, payload }: { sourceId: string; payload: Record<string, unknown> }) =>
         api.updateSource(sourceId, payload),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
+    analyzeSource: useMutation({
+      mutationFn: (sourceId: string) => api.analyzeSource(sourceId),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
+    batchAnalyzeSources: useMutation({
+      mutationFn: (sourceIds: string[]) => api.batchAnalyzeSources(sourceIds),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["sources"] });
       },
@@ -145,6 +173,48 @@ export function useMutations() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
         await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
+      },
+    }),
+    updateArticle: useMutation({
+      mutationFn: ({
+        articleId,
+        payload,
+      }: {
+        articleId: string;
+        payload: { tags?: string[]; is_favorited?: boolean };
+      }) => api.updateArticle(articleId, payload),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["articles"] });
+        await queryClient.invalidateQueries({ queryKey: ["article", variables.articleId] });
+        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
+      },
+    }),
+    analyzeArticle: useMutation({
+      mutationFn: (articleId: string) => api.analyzeArticle(articleId),
+      onSuccess: async (_data, articleId) => {
+        await queryClient.invalidateQueries({ queryKey: ["articles"] });
+        await queryClient.invalidateQueries({ queryKey: ["article", articleId] });
+      },
+    }),
+    batchAnalyzeArticles: useMutation({
+      mutationFn: (articleIds: string[]) => api.batchAnalyzeArticles(articleIds),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["articles"] });
+      },
+    }),
+    batchAnalyzeArticlesByQuery: useMutation({
+      mutationFn: (payload: {
+        sourceId?: string;
+        q?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        favoritedOnly?: boolean;
+        tags?: string[];
+        maxItems?: number;
+        target?: string;
+      }) => api.batchAnalyzeArticlesByQuery(payload),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["articles"] });
       },
     }),
     batchDeleteArticles: useMutation({

@@ -14,7 +14,6 @@ from src.integrations.wechat_ingestion.storage.save_to_html import SaveWebpageTo
 from src.integrations.wechat_ingestion.utils.discovery import normalize_wechat_article_url
 from src.integrations.wechat_ingestion.utils.tools import article_storage_dir
 from src.llm.providers import build_provider
-from src.llm.taxonomy import TAXONOMY_VERSION
 from src.models import Article, ArticleEmbedding, ArticleSource
 
 
@@ -202,14 +201,6 @@ class WechatIngestionPipeline:
         emit(stage="parsing_article", article_title=title_hint, article_url=canonical_url, message="正文获取成功，开始解析。")
         parsed = self.spider.parse_article_html(fetch_result.html, fetch_url)
         parsed_url = normalize_wechat_article_url(parsed.url or canonical_url)
-        emit(
-            stage="analyzing_with_llm",
-            article_title=parsed.title or title_hint,
-            article_url=parsed_url,
-            message="正在调用模型生成摘要和标签。",
-        )
-        features = self.provider.extract_features(parsed.text)
-
         storage_path = article_storage_dir(
             self.settings.article_storage_path,
             source.name,
@@ -224,24 +215,25 @@ class WechatIngestionPipeline:
         article.author = parsed.author
         article.publish_time = parsed.publish_time
         article.raw_html_path = saved_html
-        article.raw_text = features.get("formatted_text") or parsed.text
-        article.summary = features.get("summary") or parsed.summary
-        article.topic_tags = features.get("topic_tags") or parsed.topic_tags
-        article.entity_tags = features.get("entity_tags") or parsed.entity_tags
-        article.content_type = features.get("content_type") or parsed.content_type
-        article.core_claims = features.get("core_claims") or parsed.core_claims
-        article.key_variables = features.get("key_variables") or parsed.key_variables
-        article.catalysts = features.get("catalysts") or parsed.catalysts
-        article.risks = features.get("risks") or parsed.risks
-        article.style_tags = features.get("style_tags") or parsed.style_tags
+        article.raw_text = parsed.text
+        article.summary = article.summary if existing else None
+        article.topic_tags = article.topic_tags if existing else []
+        article.entity_tags = article.entity_tags if existing else []
+        article.content_type = article.content_type if existing else None
+        article.core_claims = article.core_claims if existing else []
+        article.key_variables = article.key_variables if existing else []
+        article.catalysts = article.catalysts if existing else []
+        article.risks = article.risks if existing else []
+        article.style_tags = article.style_tags if existing else []
         article.recommendation_reason = None
+        article.is_favorited = article.is_favorited if existing else False
+        article.llm_summary_status = "pending"
+        article.llm_summary_error = None
+        article.llm_summary_updated_at = None
 
         metadata = dict(parsed.metadata)
         metadata["canonical_article_url"] = parsed_url
         metadata["fetch_url"] = fetch_url
-        metadata["analysis_model"] = self.provider.name
-        metadata["taxonomy_version"] = features.get("taxonomy_version") or TAXONOMY_VERSION
-        metadata["analysis_features"] = features
         article.metadata_json = metadata
 
         if not existing:

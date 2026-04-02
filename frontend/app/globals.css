@@ -46,3 +46,14 @@ a {
   font-family: var(--font-display);
 }
 
+select {
+  color: rgb(var(--fg));
+  background-color: rgba(255, 255, 255, 0.05);
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  color: rgb(var(--fg));
+  background-color: rgb(var(--panel));
+}

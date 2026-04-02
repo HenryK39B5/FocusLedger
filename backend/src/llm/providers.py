@@ -28,6 +28,7 @@ from src.llm.taxonomy import (
     suggest_topic_tags,
     taxonomy_prompt_block,
 )
+from src.llm.taxonomy_files import load_article_tag_taxonomy, load_source_group_taxonomy, load_source_tag_taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,10 @@ def _truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[:limit].rstrip() + "..."
+
+
+def _normalize_summary_text(text: str) -> str:
+    return re.sub(r"\s+", " ", _normalize_text(text)).strip()
 
 
 _STOP_WORDS = {
@@ -298,6 +303,9 @@ class RuleBasedProvider:
     def embed_text(self, text: str) -> list[float]:
         return _hash_embed(text, self.settings.embed_dimension)
 
+    def classify_source(self, source_name: str, article_titles: list[str]) -> dict[str, Any]:
+        raise RuntimeError("LLM provider unavailable; source classification requires a real LLM API")
+
 
 @dataclass
 class OpenAICompatibleProvider:
@@ -348,6 +356,7 @@ class OpenAICompatibleProvider:
             "follow_redirects": True,
             "verify": self.settings.openai_verify_ssl,
             "headers": self._headers(),
+            "trust_env": False,
         }
 
     def _chat_completion(self, *, system: str, user: str) -> str:
@@ -373,87 +382,113 @@ class OpenAICompatibleProvider:
 
     def summarize(self, text: str) -> str:
         if not self.settings.openai_api_key:
-            return RuleBasedProvider(self.settings).summarize(text)
-        try:
-            return self._chat_completion(
-                system="你是一名严谨的中文财经编辑。请输出一段 100 到 140 字的摘要，只保留关键事实、判断和影响，不要照抄原文开头，不要输出标题。",
-                user=f"请总结下面这篇文章的核心事实、判断和影响，避免照抄原句：\n\n{text}",
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.warning("LLM summarize failed, fallback to rule provider: %s", exc)
-            return RuleBasedProvider(self.settings).summarize(text)
+            raise RuntimeError("LLM API key is not configured")
+        return self._chat_completion(
+            system="你是一名严谨的中文研究助理。请只输出一段中文摘要，不要标题，不要项目符号，不要解释。",
+            user=(
+                "请基于全文写一段 90 到 140 字的中文摘要。\n"
+                "要求：\n"
+                "1. 必须基于全文，不要摘抄开头两句。\n"
+                "2. 要覆盖核心事件、主要判断和潜在影响。\n"
+                "3. 不要添加原文中没有的新事实。\n\n"
+                f"文章全文：\n{text}"
+            ),
+        )
 
     def extract_features(self, text: str) -> dict[str, Any]:
         if not self.settings.openai_api_key:
-            return RuleBasedProvider(self.settings).extract_features(text)
+            raise RuntimeError("LLM API key is not configured")
 
+        allowed_tags = load_article_tag_taxonomy()
         system = (
-            "你是一名严谨的中文财经内容分析助手。"
-            "你必须只返回 JSON 对象，不要输出解释、前言、代码块或额外文本。"
+            "你是一名严谨的中文文章整理助手。"
+            "你的任务只有两个：写摘要、打标签。"
+            "你必须只返回 JSON 对象，不要解释，不要代码块，不要额外文本。"
         )
         user = (
-            f"{taxonomy_prompt_block()}\n"
-            "请基于文章内容返回 JSON，字段如下：\n"
+            "请基于全文返回 JSON：\n"
             "{\n"
-            '  "summary": "100到140字的中文摘要，禁止照抄文章前两句",\n'
-            '  "formatted_text": "重新排版后的正文，保留原意，不新增事实",\n'
-            '  "topic_tags": ["从给定标签体系中选择"],\n'
-            '  "entity_tags": ["公司、机构、人物、产品等实体"],\n'
-            '  "content_type": "深度研究|快讯|复盘|访谈|数据解读|公告解读|观点|新闻",\n'
-            '  "core_claims": ["2到4条核心判断"],\n'
-            '  "key_variables": ["影响结论的关键变量"],\n'
-            '  "catalysts": ["可能的催化因素"],\n'
-            '  "risks": ["主要风险"],\n'
-            '  "style_tags": ["从给定样式标签中选择"]\n'
-            "}\n"
-            "要求：formatted_text 只做排版、换段和轻量去噪；"
-            "summary 必须概括全文而不是截取开头；"
-            "topic_tags 和 style_tags 只能从给定体系中选择；"
-            "如果文章是行业新闻，不要误标成宏观政策。\n\n"
-            f"文章内容：\n{text}"
+            '  "summary": "90到140字的一段话中文摘要",\n'
+            '  "topic_tags": ["2到6个标签"]\n'
+            "}\n\n"
+            "摘要要求：\n"
+            "1. 必须基于全文，不要摘抄开头两句。\n"
+            "2. 要覆盖核心事件、主要判断和潜在影响。\n"
+            "3. 不要添加原文没有的新事实。\n"
+            "4. 不要使用项目符号，不要输出标题。\n\n"
+            "标签要求：\n"
+            "1. 只能从给定标签列表中选择。\n"
+            "2. 输出 2 到 6 个最相关标签。\n"
+            "3. 如果文章与某类标签关联不强，就不要硬选。\n"
+            "4. 多级标签可以直接原样输出。\n\n"
+            f"可选标签列表：{json.dumps(allowed_tags, ensure_ascii=False)}\n\n"
+            f"文章全文：\n{text}"
         )
 
-        try:
-            raw = self._chat_completion(system=system, user=user)
-            data = _extract_json_payload(raw)
-            formatted_text = str(data.get("formatted_text") or "").strip() or _heuristic_format_text(text)
-            heuristic_topic_tags = suggest_topic_tags(formatted_text, limit=8)
-            topic_tags = normalize_tag_items(_clean_list(data.get("topic_tags")), allowed=TOPIC_TAG_SET, limit=8)
-            guarded = False
-            if heuristic_topic_tags and not set(topic_tags).intersection(heuristic_topic_tags):
-                topic_tags = heuristic_topic_tags
-                guarded = True
-            style_tags = normalize_tag_items(_clean_list(data.get("style_tags")), allowed=STYLE_TAG_SET, limit=4)
-            content_type = str(data.get("content_type") or "").strip()
-            if content_type not in CONTENT_TYPE_SET:
-                content_type = suggest_content_type(formatted_text)
-                guarded = True
-            summary = _truncate(str(data.get("summary") or "").strip(), 180)
-            if not _is_grounded_summary(formatted_text, summary):
-                summary = RuleBasedProvider(self.settings).summarize(formatted_text)
-                guarded = True
-            return {
-                "summary": summary or self.summarize(formatted_text),
-                "formatted_text": formatted_text,
-                "topic_tags": topic_tags or heuristic_topic_tags,
-                "entity_tags": normalize_tag_items(_clean_list(data.get("entity_tags")), limit=8)
-                or extract_entity_tags(formatted_text, limit=8),
-                "content_type": content_type,
-                "core_claims": normalize_tag_items(_clean_list(data.get("core_claims")), limit=4)
-                or suggest_core_claims(formatted_text, limit=4),
-                "key_variables": normalize_tag_items(_clean_list(data.get("key_variables")), limit=5)
-                or suggest_key_variables(formatted_text, limit=5),
-                "catalysts": normalize_tag_items(_clean_list(data.get("catalysts")), limit=5)
-                or suggest_catalysts(formatted_text, limit=3),
-                "risks": normalize_tag_items(_clean_list(data.get("risks")), limit=5)
-                or suggest_risks(formatted_text, limit=3),
-                "style_tags": style_tags or suggest_style_tags(formatted_text, limit=4),
-                "taxonomy_version": TAXONOMY_VERSION,
-                "analysis_mode": "llm_guarded" if guarded else "llm",
-            }
-        except Exception as exc:  # pragma: no cover
-            logger.warning("LLM feature extraction failed, fallback to rule provider: %s", exc)
-            return RuleBasedProvider(self.settings).extract_features(text)
+        raw = self._chat_completion(system=system, user=user)
+        data = _extract_json_payload(raw)
+        summary = _normalize_summary_text(str(data.get("summary") or ""))
+        topic_tags = normalize_tag_items(_clean_list(data.get("topic_tags")), allowed=set(allowed_tags), limit=8)
+        if not summary:
+            raise ValueError("LLM summary is empty")
+        return {
+            "summary": summary,
+            "formatted_text": _heuristic_format_text(text),
+            "topic_tags": topic_tags,
+            "entity_tags": [],
+            "content_type": None,
+            "core_claims": [],
+            "key_variables": [],
+            "catalysts": [],
+            "risks": [],
+            "style_tags": [],
+            "taxonomy_version": TAXONOMY_VERSION,
+            "analysis_mode": "llm",
+        }
+
+    def classify_source(self, source_name: str, article_titles: list[str]) -> dict[str, Any]:
+        if not self.settings.openai_api_key:
+            raise RuntimeError("LLM API key is not configured")
+
+        allowed_groups = load_source_group_taxonomy()
+        allowed_tags = load_source_tag_taxonomy()
+        preview_titles = [title.strip() for title in article_titles if title.strip()][:20]
+        system = (
+            "你是一名严谨的中文内容研究助理。"
+            "你的任务是根据公众号名称和其历史文章标题，为公众号选择一个分组，并打上 2 到 5 个标签。"
+            "你必须只返回 JSON 对象，不要解释，不要代码块，不要额外文本。"
+        )
+        user = (
+            "请根据下面的信息为公众号做分类。\n"
+            "输出 JSON：\n"
+            "{\n"
+            '  "source_group": "一个分组路径",\n'
+            '  "tags": ["2到5个标签"],\n'
+            '  "reason": "一句简短说明"\n'
+            "}\n\n"
+            "要求：\n"
+            "1. source_group 只能从给定分组列表中选择一个。\n"
+            "2. tags 只能从给定标签列表中选择，输出 2 到 5 个。\n"
+            "3. 优先根据公众号名称和历史文章标题判断长期定位，而不是单篇偶发主题。\n"
+            "4. 不要发明分组或标签。\n\n"
+            f"公众号名称：{source_name}\n"
+            f"历史文章标题：{json.dumps(preview_titles, ensure_ascii=False)}\n"
+            f"可选分组：{json.dumps(allowed_groups, ensure_ascii=False)}\n"
+            f"可选标签：{json.dumps(allowed_tags, ensure_ascii=False)}"
+        )
+        raw = self._chat_completion(system=system, user=user)
+        data = _extract_json_payload(raw)
+        source_group = str(data.get("source_group") or "").strip()
+        tags = normalize_tag_items(_clean_list(data.get("tags")), allowed=set(allowed_tags), limit=5)
+        if source_group not in allowed_groups:
+            raise ValueError("LLM returned an invalid source group")
+        if not tags:
+            raise ValueError("LLM returned empty source tags")
+        return {
+            "source_group": source_group,
+            "tags": tags,
+            "reason": str(data.get("reason") or "").strip() or None,
+        }
 
     def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
         if not self.settings.openai_api_key:
