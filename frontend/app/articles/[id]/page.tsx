@@ -156,7 +156,7 @@ export default function ArticleDetailPage() {
   return (
     <PageFrame
       title="文章详情"
-      subtitle="摘要只由 LLM 生成；人工只负责补充和修正文章标签。"
+      subtitle="在这里查看全文、管理标签，并按需重新生成摘要。"
       actions={
         <>
           <Link href="/articles">
@@ -187,11 +187,11 @@ export default function ArticleDetailPage() {
       }
     >
       {message ? (
-        <p className="mb-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">{message}</p>
+        <p className="mb-5 rounded-[18px] border border-white/10 bg-black/20 px-4 py-3 text-[13px] text-white/70">{message}</p>
       ) : null}
 
       <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_380px]">
-        <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
+        <section className="rounded-[24px] border border-white/10 bg-white/5 p-5">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
             <div>
               <div className="flex flex-wrap items-center gap-3">
@@ -208,7 +208,7 @@ export default function ArticleDetailPage() {
 
               <h3 className="mt-3 text-3xl font-semibold leading-tight text-white lg:text-[2.2rem]">{data.title}</h3>
 
-              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/52">
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-white/52">
                 <span>作者：{data.author ?? "未知"}</span>
                 <span>发布时间：{data.publish_time ?? "未知"}</span>
                 <span>最近总结：{formatDateTimeShanghai(data.llm_summary_updated_at)}</span>
@@ -223,26 +223,26 @@ export default function ArticleDetailPage() {
 
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <div className="rounded-[18px] border border-white/10 bg-black/20 p-3.5">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Tags</p>
                   <p className="mt-2 text-2xl font-semibold text-white">{data.all_tags.length}</p>
                   <p className="mt-1 text-xs text-white/45">当前生效标签数</p>
                 </div>
-                <div className="rounded-[20px] border border-white/10 bg-black/20 p-4">
+                <div className="rounded-[18px] border border-white/10 bg-black/20 p-3.5">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Source</p>
                   <p className="mt-2 text-sm font-medium text-white">{data.source?.source_group ?? "未分组"}</p>
                   <p className="mt-1 text-xs text-white/45">来源分组</p>
                 </div>
               </div>
 
-              <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+              <div className="rounded-[18px] border border-white/10 bg-white/5 p-3.5">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/36">Links</p>
                 <div className="mt-3 space-y-3">
                   <a
                     href={originalUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/74 transition hover:border-white/20 hover:bg-black/30"
+                    className="flex items-center justify-between rounded-[16px] border border-white/10 bg-black/20 px-3 py-3 text-[13px] text-white/74 transition hover:border-white/20 hover:bg-black/30"
                   >
                     <span>查看原文</span>
                     <ExternalLink size={14} />
@@ -252,13 +252,13 @@ export default function ArticleDetailPage() {
                       href={homeLink}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/74 transition hover:border-white/20 hover:bg-black/30"
+                      className="flex items-center justify-between rounded-[16px] border border-white/10 bg-black/20 px-3 py-3 text-[13px] text-white/74 transition hover:border-white/20 hover:bg-black/30"
                     >
                       <span>打开公众号主页</span>
                       <ExternalLink size={14} />
                     </a>
                   ) : (
-                    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/48">
+                    <div className="rounded-[16px] border border-white/10 bg-black/20 px-3 py-3 text-[13px] text-white/48">
                       未提取到主页链接
                     </div>
                   )}
@@ -269,10 +269,10 @@ export default function ArticleDetailPage() {
         </section>
 
         <div className="space-y-6">
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-            <SectionTitle title="LLM 总结" subtitle="把总结单独控制，不再和抓取流程耦合。" />
+          <section className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+            <SectionTitle title="AI 摘要" subtitle="需要时可单独生成或重新生成，不影响原始文章内容。" />
             <div className="space-y-4 text-sm text-white/70">
-              <div className="grid gap-3 rounded-[20px] border border-white/10 bg-black/20 p-4">
+              <div className="grid gap-3 rounded-[18px] border border-white/10 bg-black/20 p-3.5">
                 <p>当前状态：{llmStatusLabel(data.llm_summary_status)}</p>
                 <p>最近总结时间：{formatDateTimeShanghai(data.llm_summary_updated_at)}</p>
                 <p>最近错误：{data.llm_summary_error ?? "--"}</p>
@@ -288,8 +288,8 @@ export default function ArticleDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-            <SectionTitle title="标签整理" subtitle="摘要只读；你可以在这里补充和修正文章标签。" />
+          <section className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+            <SectionTitle title="标签管理" subtitle="你可以在这里补充、删减或修正文章标签。" />
             <div className="space-y-4">
               <div>
                 <Label>文章标签</Label>
@@ -305,9 +305,9 @@ export default function ArticleDetailPage() {
       </div>
 
       {data.summary ? (
-        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-          <SectionTitle title="Summary" subtitle="摘要完整展示，只读，不参与手动编辑。" />
-          <div className="rounded-[24px] border border-white/10 bg-black/20 px-5 py-6 sm:px-6">
+        <section className="mt-6 rounded-[24px] border border-white/10 bg-white/5 p-5">
+          <SectionTitle title="摘要" subtitle="完整展示当前摘要内容。" />
+          <div className="rounded-[20px] border border-white/10 bg-black/20 px-5 py-5 sm:px-6">
             <div className="space-y-4">
               {summaryParagraphs.map((paragraph, index) => (
                 <p
@@ -322,9 +322,9 @@ export default function ArticleDetailPage() {
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-        <SectionTitle title="正文" subtitle="正文独占整行，优先保证阅读宽度。14 寸屏和大屏幕都以阅读舒适度为先。" />
-        <div className="rounded-[28px] border border-white/10 bg-[#0b1220]/80 px-5 py-7 sm:px-7 lg:px-10">
+        <section className="mt-6 rounded-[24px] border border-white/10 bg-white/5 p-5">
+        <SectionTitle title="正文" subtitle="以阅读舒适度为优先，适配笔记本与大屏显示。" />
+        <div className="rounded-[22px] border border-white/10 bg-[#0b1220]/80 px-5 py-6 sm:px-7 lg:px-10">
           {paragraphs.length ? (
             <div className="mx-auto max-w-[84ch] space-y-6">
               {paragraphs.map((paragraph, index) => (

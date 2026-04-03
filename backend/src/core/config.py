@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     wechat_verify_ssl: bool = False
     request_timeout_seconds: int = 20
     embed_dimension: int = 256
+    tts_worker_base_url: str = "http://localhost:8010"
+    tts_worker_timeout_seconds: int = 15
+    tts_audio_output_path: str = "data/audio"
     qclaw_integration_key: str = ""
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"

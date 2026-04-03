@@ -112,41 +112,103 @@ export type ArticleList = {
   page_size: number;
 };
 
-export type DailyReportSection = {
-  title: string;
-  summary?: string | null;
-  bullets: string[];
-  article_ids: string[];
+export type Notebook = {
+  id: string;
+  name: string;
+  emoji: string;
+  description?: string | null;
+  article_count: number;
+  articles: ArticleSummary[];
+  created_at: string;
+  updated_at: string;
 };
 
-export type DailyReportArticle = {
+export type NotebookList = {
+  items: Notebook[];
+};
+
+export type NotebookDeleteResult = {
+  notebook_id: string;
+  name: string;
+};
+
+export type NotebookChatMessage = {
+  id: string;
+  notebook_id: string;
+  role: string;
+  content: string;
+  citations: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type NotebookChat = {
+  notebook_id: string;
+  messages: NotebookChatMessage[];
+};
+
+export type NotebookChatResponse = {
+  notebook_id: string;
+  user_message: NotebookChatMessage;
+  assistant_message: NotebookChatMessage;
+};
+
+export type NotebookPodcastTurn = {
+  speaker_id: string;
+  text: string;
+  citations: string[];
+};
+
+export type NotebookPodcastSection = {
   id: string;
   title: string;
-  source_name: string;
-  source_group?: string | null;
-  source_tags: string[];
-  publish_time?: string | null;
-  summary?: string | null;
-  topic_tags: string[];
-  entity_tags: string[];
-  style_tags: string[];
-  content_type?: string | null;
-  importance_score: number;
+  objective?: string | null;
+  turns: NotebookPodcastTurn[];
 };
 
-export type DailyReport = {
-  date: string;
+export type NotebookPodcastScript = {
+  id: string;
+  notebook_id: string;
   title: string;
-  overview?: string | null;
-  report_markdown: string;
-  follow_ups: string[];
-  sections: DailyReportSection[];
-  articles: DailyReportArticle[];
-  stats: Record<string, unknown>;
-  generated_at: string;
-  source_id?: string | null;
-  source_group?: string | null;
+  format: string;
+  target_minutes: number;
+  focus_prompt?: string | null;
+  status: string;
+  audio_status: string;
+  audio_job_id?: string | null;
+  audio_path?: string | null;
+  audio_error?: string | null;
+  generation_error?: string | null;
+  cited_article_ids: string[];
+  script_markdown: string;
+  script_json: Record<string, unknown>;
+  sections: NotebookPodcastSection[];
+  created_at: string;
+  updated_at: string;
 };
+
+export type NotebookPodcastScriptList = {
+  items: NotebookPodcastScript[];
+};
+
+export type NotebookPodcastAudioJob = {
+  notebook_id: string;
+  script_id: string;
+  title: string;
+  audio_status: string;
+  audio_job_id?: string | null;
+  audio_path?: string | null;
+  audio_error?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NotebookPodcastScriptDeleteResult = {
+  notebook_id: string;
+  script_id: string;
+  title: string;
+};
+
 
 export type IngestionResult = {
   source_id: string;
@@ -169,6 +231,8 @@ export type IngestionJob = {
   page_start: number;
   page_end: number;
   since_days?: number | null;
+  date_from?: string | null;
+  date_to?: string | null;
   current_stage?: string | null;
   current_article_title?: string | null;
   current_article_url?: string | null;

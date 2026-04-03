@@ -1,221 +1,127 @@
 # FocusLedger
 
-FocusLedger 是一个面向中文微信公众号文章的本地研究与内容整理工具。
+<p align="center">
+  <img src="./frontend/public/favicon.svg" alt="FocusLedger" width="96" height="96" />
+</p>
 
-当前阶段，它的正式价值不在“自动抓取最新文章”，而在：
+<p align="center">
+  面向微信公众号文章的本地研究与内容整理工具
+</p>
 
-- 管理公众号来源并同步文章到本地文章库
-- 基于文章数据做收藏、标签、筛选与专题整理
-- 独立执行文章 LLM 总结与标签整理
-- 基于文章库生成日报
-- 逐步演进为一个基于微信公众号文章的 NotebookLM 型产品
+<p align="center">
+  <img alt="Next.js 15" src="https://img.shields.io/badge/Next.js-15-111111?style=flat-square&logo=nextdotjs&logoColor=white" />
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-0f766e?style=flat-square&logo=fastapi&logoColor=white" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-1d4ed8?style=flat-square&logo=postgresql&logoColor=white" />
+  <img alt="Redis" src="https://img.shields.io/badge/Redis-7-b91c1c?style=flat-square&logo=redis&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-1d4ed8?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-0891b2?style=flat-square&logo=tailwindcss&logoColor=white" />
+</p>
 
-## 当前产品判断
+<p align="center">
+  来源管理 · 文章同步 · LLM 总结 · Notebook 对话 · 播客脚本 · 音频生成
+</p>
 
-FocusLedger 现在最有价值的资产是：
+FocusLedger 是一个运行在本地的微信公众号文章研究平台，核心围绕三件事展开：
 
-- 已经入库的公众号文章数据
-- 稳定可维护的来源管理与同步流程
-- 文章管理层
-- 标签体系与本地 taxonomy 文档
-- 后续可以被 QClaw / MCP / AI 工具调用的内容整理能力
+- 管理公众号来源与手动凭据更新
+- 建立本地文章库，支持筛选、收藏、标签与 LLM 总结
+- 提供 Notebook 工作区，支持 AI 对话、播客脚本与音频生成
 
-当前正式同步路径是：
-
-1. 创建来源
-2. 保存 `profile_ext` 凭据
-3. 同步前验证凭据
-4. 凭据有效则继续同步
-5. 凭据失效则提示用户手动更新
-6. 用户在 `/collect` 页面粘贴新的 `profile_ext`
-7. 重新发起同步
-
-自动刷新凭据、Fiddler callback、自动抓包等能力已经退出正式主链路。
-
-## 当前阶段重点
-
-当前开发重点是“阶段 A：打稳文章管理层”。
-
-已经落地或正在强化的能力包括：
-
-- 文章独立的 LLM 总结状态
-- 文章收藏状态
-- 单篇与批量文章 LLM 总结
-- 基于筛选条件的批量总结
-- 文章标签手动编辑
-- 文章标签分层筛选
-- 来源分组与来源标签编辑
-- 来源 AI 分组与 AI 打标签
-- 本地 taxonomy 文档约束来源与文章分类
-
-## 当前能力边界
-
-### 保留能力
-
-- 来源创建与维护
-- 公众号主页链接解析
-- `profile_ext` 凭据保存
-- 凭据状态检测
-- 凭据手动更新
-- 后台同步任务
-- 文章去重与正文入库
-- 文章独立 LLM 总结
-- 来源 AI 分组与打标签
-
-### 已降级或放弃的路径
-
-- Fiddler Classic 半自动刷新主流程
-- 自动读取抓包结果
-- 自动刷新凭据
-- FiddlerCore
-- mitmproxy
-- 自研 Windows helper
-
-## taxonomy 体系
-
-当前项目维护三份本地 taxonomy 文档：
-
-- `docs/taxonomies/source-group-taxonomy.md`
-- `docs/taxonomies/source-tag-taxonomy.md`
-- `docs/taxonomies/article-tag-taxonomy.md`
-
-这三份文档分别约束：
-
-- 来源主分组
-- 来源横向标签
-- 文章主题标签与内容类型
-
-设计原则：
-
-- 分组只承担主归属
-- 标签承担横向切片
-- 文章标签、来源标签、来源分组分工明确
-- 标签使用多级路径，父标签筛选应命中子标签
-- taxonomy 优先稳定、高复用、可解释
-
-## 前端页面
-
-- `/sources`
-  - 来源管理
-  - 分组视图
-  - 来源编辑
-  - 来源 AI 分组与打标签
-
-- `/sources/add`
-  - 通过文章链接创建来源
-  - 自动解析 `__biz`
-  - 自动生成公众号主页链接
-
-- `/collect`
-  - 验证凭据
-  - 手动更新凭据
-  - 设置同步参数
-  - 发起同步任务
-  - 查看最近同步任务结果
-
-- `/articles`
-  - 搜索与筛选文章
-  - 按文章标签筛选
-  - 按总结状态筛选
-  - 按收藏状态筛选
-  - 批量总结未总结文章
-  - 批量总结已选文章
-
-- `/articles/[id]`
-  - 查看正文与摘要
-  - 查看来源信息
-  - 执行或重跑 LLM 总结
-  - 编辑文章标签
-
-- `/reports`
-  - 按日期生成日报
-  - 按来源或来源分组缩小范围
-
-- `/status`
-  - 系统状态
+当前产品方向已经从“自动刷新公众号凭据”转向“充分利用已有公众号文章数据”，目标是逐步演进为一个基于微信公众号文章的 NotebookLM 型产品。
 
 ## 技术结构
 
-### 前端
+- 前端：`frontend/`，Next.js 15 App Router + TypeScript + Tailwind CSS
+- 后端：`backend/`，FastAPI + SQLAlchemy + Alembic
+- TTS Worker：`tools/tts-worker/`，FastAPI + edge-tts
+- 基础设施：PostgreSQL + Redis，通过 Docker Compose 运行
 
-- Next.js App Router
-- 目录：`frontend/`
-
-### 后端
-
-- FastAPI
-- 目录：`backend/`
-
-### 基础设施
-
-- PostgreSQL
-- Redis
-- Docker Compose
-
-### QClaw
-
-- 目录：`qclaw-skills/`
-- 当前已打通：指定日期日报调用
-
-## 推荐开发顺序
-
-当前更合理的推进顺序是：
-
-1. 继续打稳文章管理层
-2. 完善来源管理与 taxonomy 使用体验
-3. 建立 Notebook / 工作区机制
-4. 基于 Notebook 做报告、博客、思维导图、播客脚本等生成
-5. 再评估 MCP 与 QClaw + Codex CLI 调用链路
-
-## 快速启动
-
-### 试用环境
-
-```powershell
-git clone <repo>
-cd FocusLedger
-powershell -ExecutionPolicy Bypass -File .\scripts\quick-start.ps1
-```
-
-打开：
-
-- 前端：[http://localhost:3000](http://localhost:3000)
-- 后端健康检查：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-
-停止：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\quick-stop.ps1
-```
-
-### 开发环境
-
-建议安装：
+## 环境要求
 
 - Python 3.12
 - Node.js 22
 - Docker Desktop
+- Anaconda
+  当前 TTS worker 默认使用 `D:\anaconda3\python.exe`
 
-复制环境变量：
+## 快速开始
+
+第一次在一台新机器上配置 FocusLedger，按下面的顺序即可。
+
+### 1. 克隆项目
+
+```powershell
+git clone <your-repo-url>
+cd FocusLedger
+```
+
+### 2. 准备环境变量
 
 ```powershell
 copy .env.example .env
 ```
 
-启动 PostgreSQL 与 Redis：
+至少确认这些配置可用：
+
+```env
+DATABASE_URL=postgresql+psycopg://focusledger:focusledger@localhost:15432/focusledger
+REDIS_URL=redis://localhost:6379/0
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+TTS_WORKER_BASE_URL=http://localhost:8010
+```
+
+### 3. 安装前后端依赖
+
+后端依赖：
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -U pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+cd ..
+```
+
+前端依赖：
+
+```powershell
+cd frontend
+npm install
+cd ..
+```
+
+### 4. 启动 PostgreSQL 和 Redis
 
 ```powershell
 docker compose up -d postgres redis
 ```
 
-启动后端：
+数据库文件会直接保存在项目内目录：
+
+- `data/postgres`
+- `data/redis`
+
+### 5. 初始化 / 升级数据库结构
+
+第一次配置时，这一步用于创建项目需要的数据表。
+后续如果拉取了新代码，而数据库结构有变化，也需要再次执行。
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
+cd ..
+```
+
+### 6. 启动后端
 
 ```powershell
 cd backend
 python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-启动前端：
+### 7. 启动前端
 
 ```powershell
 cd frontend
@@ -223,42 +129,99 @@ npm install
 npm run dev
 ```
 
-如果 `3000` 端口不可用：
+### 8. 按需启动 TTS Worker
+
+只有在测试 Notebook 音频功能时才需要启动：
 
 ```powershell
-npm run dev:3300
+powershell -ExecutionPolicy Bypass -File .\scripts\tts-start.ps1
 ```
 
-## 关键目录
+## 运行说明
 
-- `backend/src/api/`
-- `backend/src/services/`
-- `backend/src/integrations/wechat_ingestion/`
-- `backend/src/llm/`
-- `frontend/app/`
-- `frontend/lib/`
-- `docs/taxonomies/`
-- `qclaw-skills/`
-- `scripts/`
+项目只有一种运行方式：手动分步启动。
 
-## Git 建议
+默认地址：
 
-建议纳入 Git：
+- 前端：`http://localhost:3000`
+- 后端：`http://localhost:8000`
+- PostgreSQL：`localhost:15432`
+- Redis：`localhost:6379`
+- TTS Worker 健康检查：`http://localhost:8010/health`
 
-- 前后端代码
-- README
-- AGENTS.md
-- 数据库迁移文件
-- taxonomy 文档
-- 产品文档
-- QClaw 技能定义
-- 启动脚本
+数据目录：
 
-不应纳入 Git：
+- `data/postgres`
+- `data/redis`
+- `data/audio`
 
-- `.env`
-- 本地日志
-- 本地缓存
-- 临时导出文件
-- `_ref_Access_wechat_article/`
-- `.claude/`
+## 关闭方式
+
+项目也只有一种关闭方式：按组件分别关闭。
+
+### 1. 关闭前端
+
+在前端终端中按：
+
+```powershell
+Ctrl + C
+```
+
+### 2. 关闭后端
+
+在后端终端中按：
+
+```powershell
+Ctrl + C
+```
+
+### 3. 关闭 TTS Worker
+
+如果你启动过 TTS worker，再执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\tts-stop.ps1
+```
+
+### 4. 关闭 Docker 基础设施
+
+回到项目根目录执行：
+
+```powershell
+docker compose stop postgres redis
+```
+
+如果你需要连容器一起移除：
+
+```powershell
+docker compose down
+```
+
+## 常用路径
+
+- 前端页面：`frontend/app/`
+- 前端共享组件：`frontend/components/ui.tsx`
+- 前端数据层：`frontend/lib/`
+- 后端路由：`backend/src/api/routes/`
+- 后端服务：`backend/src/services/`
+- Notebook 相关模型：`backend/src/models/`
+- TTS worker：`tools/tts-worker/app.py`
+- taxonomy 文档：`docs/taxonomies/`
+
+## 当前主要页面
+
+- `/`：总览
+- `/sources`：来源管理
+- `/sources/add`：添加来源
+- `/collect`：凭据更新与文章同步
+- `/articles`：文章浏览
+- `/articles/[id]`：文章详情
+- `/notebooks`：Notebook 列表
+- `/notebooks/[id]`：Notebook 工作区
+- `/status`：系统状态
+
+## 协作提示
+
+- 不再提供快速启动脚本；请按 README 中的分步流程启动
+- TTS worker 不是常驻必需服务，只在音频功能测试时启动
+- 当前产品方向不再包含日报功能

@@ -19,6 +19,8 @@ def run_ingestion(
     page_start: int = 1,
     page_end: int = 20,
     since_days: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     db: Session = Depends(db_session),
 ):
     source = SourceService().get_source(db, source_id)
@@ -31,6 +33,8 @@ def run_ingestion(
         page_start=page_start,
         page_end=page_end,
         since_days=since_days,
+        date_from=date_from,
+        date_to=date_to,
     )
     db.commit()
     return result

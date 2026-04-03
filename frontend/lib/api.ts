@@ -6,10 +6,18 @@ import type {
   ArticleList,
   ArticleSource,
   ArticleSourceDeleteResult,
-  DailyReport,
   IngestionJob,
   IngestionJobList,
   IngestionResult,
+  Notebook,
+  NotebookChat,
+  NotebookChatResponse,
+  NotebookDeleteResult,
+  NotebookList,
+  NotebookPodcastScript,
+  NotebookPodcastAudioJob,
+  NotebookPodcastScriptDeleteResult,
+  NotebookPodcastScriptList,
   SourceBatchAnalyzeResult,
   SourceCredentialCheckResult,
   WechatHomeLinkResolveResult,
@@ -41,14 +49,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => apiFetch<{ status: string }>("/api/v1/health"),
-  dailyReport: (options?: { date?: string; sourceId?: string; sourceGroup?: string; limit?: number }) => {
-    const params = new URLSearchParams();
-    if (options?.date) params.set("date", options.date);
-    if (options?.sourceId) params.set("source_id", options.sourceId);
-    if (options?.sourceGroup) params.set("source_group", options.sourceGroup);
-    if (options?.limit != null) params.set("limit", String(options.limit));
-    return apiFetch<DailyReport>(`/api/v1/reports/daily${params.toString() ? `?${params.toString()}` : ""}`);
-  },
   articles: (options?: {
     limit?: number;
     sourceId?: string;
@@ -77,6 +77,75 @@ export const api = {
     return apiFetch<ArticleList>(`/api/v1/articles?${params.toString()}`);
   },
   article: (id: string) => apiFetch<Article>(`/api/v1/articles/${id}`),
+  notebooks: () => apiFetch<NotebookList>("/api/v1/notebooks"),
+  notebook: (id: string) => apiFetch<Notebook>(`/api/v1/notebooks/${id}`),
+  notebookChat: (id: string) => apiFetch<NotebookChat>(`/api/v1/notebooks/${id}/chat`),
+  notebookPodcasts: (id: string) => apiFetch<NotebookPodcastScriptList>(`/api/v1/notebooks/${id}/podcasts`),
+  notebookPodcast: (notebookId: string, scriptId: string) =>
+    apiFetch<NotebookPodcastScript>(`/api/v1/notebooks/${notebookId}/podcasts/${scriptId}`),
+  notebookPodcastAudio: (notebookId: string, scriptId: string) =>
+    apiFetch<NotebookPodcastAudioJob>(`/api/v1/notebooks/${notebookId}/podcasts/${scriptId}/audio`),
+  createNotebook: (payload: { name: string; emoji?: string; description?: string | null }) =>
+    apiFetch<Notebook>("/api/v1/notebooks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateNotebook: (id: string, payload: { name?: string; emoji?: string; description?: string | null }) =>
+    apiFetch<Notebook>(`/api/v1/notebooks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteNotebook: (id: string) =>
+    apiFetch<NotebookDeleteResult>(`/api/v1/notebooks/${id}`, {
+      method: "DELETE",
+    }),
+  addNotebookArticles: (id: string, articleIds: string[]) =>
+    apiFetch<Notebook>(`/api/v1/notebooks/${id}/articles`, {
+      method: "POST",
+      body: JSON.stringify({ article_ids: articleIds }),
+    }),
+  removeNotebookArticle: (id: string, articleId: string) =>
+    apiFetch<Notebook>(`/api/v1/notebooks/${id}/articles/${articleId}`, {
+      method: "DELETE",
+    }),
+  askNotebookChat: (id: string, message: string) =>
+    apiFetch<NotebookChatResponse>(`/api/v1/notebooks/${id}/chat`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  clearNotebookChat: (id: string) =>
+    apiFetch<NotebookChat>(`/api/v1/notebooks/${id}/chat`, {
+      method: "DELETE",
+    }),
+  generateNotebookPodcast: (
+    id: string,
+    payload: { format: string; targetMinutes: number; focusPrompt?: string; articleIds?: string[] },
+  ) =>
+    apiFetch<NotebookPodcastScript>(`/api/v1/notebooks/${id}/podcasts`, {
+      method: "POST",
+      body: JSON.stringify({
+        format: payload.format,
+        target_minutes: payload.targetMinutes,
+        focus_prompt: payload.focusPrompt ?? null,
+        article_ids: payload.articleIds ?? [],
+      }),
+    }),
+  deleteNotebookPodcast: (notebookId: string, scriptId: string) =>
+    apiFetch<NotebookPodcastScriptDeleteResult>(`/api/v1/notebooks/${notebookId}/podcasts/${scriptId}`, {
+      method: "DELETE",
+    }),
+  createNotebookPodcastAudio: (
+    notebookId: string,
+    scriptId: string,
+    options?: { voice?: string; rate?: string },
+  ) =>
+    apiFetch<NotebookPodcastAudioJob>(`/api/v1/notebooks/${notebookId}/podcasts/${scriptId}/audio`, {
+      method: "POST",
+      body: JSON.stringify({
+        voice: options?.voice ?? "zh-CN-XiaoxiaoNeural",
+        rate: options?.rate ?? "-8%",
+      }),
+    }),
   updateArticle: (
     id: string,
     payload: { tags?: string[]; is_favorited?: boolean },
@@ -174,7 +243,14 @@ export const api = {
       method: "POST",
     });
   },
-  createIngestionJob: (payload: { sourceId: string; pageStart?: number; pageEnd?: number; sinceDays?: number | null }) =>
+  createIngestionJob: (payload: {
+    sourceId: string;
+    pageStart?: number;
+    pageEnd?: number;
+    sinceDays?: number | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }) =>
     apiFetch<IngestionJob>("/api/v1/ingestion-jobs", {
       method: "POST",
       body: JSON.stringify({
@@ -182,6 +258,8 @@ export const api = {
         page_start: payload.pageStart ?? 1,
         page_end: payload.pageEnd ?? 20,
         since_days: payload.sinceDays ?? null,
+        date_from: payload.dateFrom ?? null,
+        date_to: payload.dateTo ?? null,
       }),
     }),
   ingestionJobs: (options?: { sourceId?: string; limit?: number }) => {

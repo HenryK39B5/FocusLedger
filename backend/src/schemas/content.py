@@ -188,5 +188,127 @@ class ArticleBatchAnalyzeQueryPayload(SchemaBase):
     max_items: int = 100
     target: str = "pending"
 
+
+class NotebookCreate(SchemaBase):
+    name: str
+    emoji: str = "📒"
+    description: str | None = None
+
+
+class NotebookUpdate(SchemaBase):
+    name: str | None = None
+    emoji: str | None = None
+    description: str | None = None
+
+
+class NotebookArticlePayload(SchemaBase):
+    article_ids: list[str] = Field(default_factory=list)
+
+
+class NotebookDeleteRead(SchemaBase):
+    notebook_id: str
+    name: str
+
+
+class NotebookRead(IDSchema, TimestampSchema):
+    name: str
+    emoji: str
+    description: str | None = None
+    article_count: int = 0
+    articles: list[ArticleSummaryRead] = Field(default_factory=list)
+
+
+class NotebookListRead(SchemaBase):
+    items: list[NotebookRead] = Field(default_factory=list)
+
+
+class NotebookChatMessageRead(IDSchema, TimestampSchema):
+    notebook_id: str
+    role: str
+    content: str
+    citations: list[str] = Field(default_factory=list)
+
+
+class NotebookChatRead(SchemaBase):
+    notebook_id: str
+    messages: list[NotebookChatMessageRead] = Field(default_factory=list)
+
+
+class NotebookChatRequest(SchemaBase):
+    message: str
+
+
+class NotebookChatResponse(SchemaBase):
+    notebook_id: str
+    user_message: NotebookChatMessageRead
+    assistant_message: NotebookChatMessageRead
+
+
+class NotebookPodcastScriptGenerate(SchemaBase):
+    format: str = "explainer"
+    target_minutes: int = 5
+    focus_prompt: str | None = None
+    article_ids: list[str] = Field(default_factory=list)
+
+
+class NotebookPodcastScriptDeleteRead(SchemaBase):
+    notebook_id: str
+    script_id: str
+    title: str
+
+
+class NotebookPodcastTurnRead(SchemaBase):
+    speaker_id: str
+    text: str
+    citations: list[str] = Field(default_factory=list)
+
+
+class NotebookPodcastSectionRead(SchemaBase):
+    id: str
+    title: str
+    objective: str | None = None
+    turns: list[NotebookPodcastTurnRead] = Field(default_factory=list)
+
+
+class NotebookPodcastScriptRead(IDSchema, TimestampSchema):
+    notebook_id: str
+    title: str
+    format: str
+    target_minutes: int
+    focus_prompt: str | None = None
+    status: str
+    audio_status: str
+    audio_job_id: str | None = None
+    audio_path: str | None = None
+    audio_error: str | None = None
+    generation_error: str | None = None
+    cited_article_ids: list[str] = Field(default_factory=list)
+    script_markdown: str
+    script_json: dict[str, Any] = Field(default_factory=dict)
+    sections: list[NotebookPodcastSectionRead] = Field(default_factory=list)
+
+
+class NotebookPodcastScriptListRead(SchemaBase):
+    items: list[NotebookPodcastScriptRead] = Field(default_factory=list)
+
+
+class NotebookPodcastAudioCreate(SchemaBase):
+    voice: str = "zh-CN-XiaoxiaoNeural"
+    rate: str = "-8%"
+
+
+class NotebookPodcastAudioJobRead(SchemaBase):
+    notebook_id: str
+    script_id: str
+    title: str
+    audio_status: str
+    audio_job_id: str | None = None
+    audio_path: str | None = None
+    audio_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 ArticleSourceRead.model_rebuild()
 ArticleRead.model_rebuild()
+NotebookRead.model_rebuild()

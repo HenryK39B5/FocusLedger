@@ -18,6 +18,8 @@ class IngestionService:
         page_start: int = 1,
         page_end: int = 20,
         since_days: int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> IngestionResult:
         adapter = WeChatIngestionAdapter(settings)
         outcome = adapter.ingest_source(
@@ -26,6 +28,8 @@ class IngestionService:
             page_start=page_start,
             page_end=page_end,
             since_days=since_days,
+            date_from=date_from,
+            date_to=date_to,
         )
         SourceCredentialService(settings).record_sync_result(
             db,

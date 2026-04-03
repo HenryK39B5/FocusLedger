@@ -37,6 +37,7 @@ class Article(Base, IDMixin, TimestampMixin):
     source = relationship("ArticleSource", lazy="joined")
     metrics = relationship("ArticleMetrics", back_populates="article", cascade="all, delete-orphan")
     embeddings = relationship("ArticleEmbedding", back_populates="article", cascade="all, delete-orphan")
+    notebook_links = relationship("NotebookArticle", back_populates="article", cascade="all, delete-orphan")
 
     @property
     def tags(self) -> list[str]:

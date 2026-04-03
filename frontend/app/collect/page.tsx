@@ -26,12 +26,16 @@ type SourceSyncSettings = {
   pageStart: number;
   pageEnd: number;
   sinceDays: string;
+  dateFrom: string;
+  dateTo: string;
 };
 
 const defaultSyncSettings: SourceSyncSettings = {
   pageStart: 1,
   pageEnd: 20,
   sinceDays: "7",
+  dateFrom: "",
+  dateTo: "",
 };
 
 function parseSinceDays(value: string) {
@@ -218,13 +222,23 @@ export default function CollectPage() {
 
   async function handleCreateJob(sourceId: string) {
     const settings = getSourceSettings(sourceId);
+    const trimmedDateFrom = settings.dateFrom.trim();
+    const trimmedDateTo = settings.dateTo.trim();
+
+    if (trimmedDateFrom && trimmedDateTo && trimmedDateFrom > trimmedDateTo) {
+      setMessage("开始日期不能晚于结束日期。");
+      return;
+    }
+
     setLaunchingJobId(sourceId);
     try {
       const job = await mutations.createIngestionJob.mutateAsync({
         sourceId,
         pageStart: clampPage(settings.pageStart),
         pageEnd: clampPage(settings.pageEnd),
-        sinceDays: parseSinceDays(settings.sinceDays),
+        sinceDays: trimmedDateFrom || trimmedDateTo ? null : parseSinceDays(settings.sinceDays),
+        dateFrom: trimmedDateFrom || null,
+        dateTo: trimmedDateTo || null,
       });
       setMessage(`同步任务已创建：${job.id}`);
       await jobs.refetch();
@@ -263,25 +277,23 @@ export default function CollectPage() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 shrink-0 text-amber-200" size={18} />
           <div className="text-sm leading-6 text-amber-50/90">
-            <p className="font-medium text-amber-100">当前同步模式为手动更新凭据</p>
+            <p className="font-medium text-amber-100">凭据需要手动更新</p>
             <p>
-              系统仍会自动检测凭据是否可用，但不再自动启动 Fiddler 或读取抓包结果。若某个来源显示“需要刷新凭据”或同步失败提示凭据失效，请先在这里手动粘贴新的
-              {" "}profile_ext 链接，再重新同步文章。
+              系统会自动检测凭据是否可用。若某个来源显示“需要刷新凭据”或同步时提示凭据失效，请先在这里粘贴新的{" "}
+              profile_ext 链接，再重新同步文章。
             </p>
           </div>
         </div>
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-        <SectionTitle
-          title="同步任务面板"
-          subtitle="这里展示凭据状态、手动更新入口和最近一次同步任务结果。"
-        />
+        <SectionTitle title="同步任务面板" subtitle="这里展示凭据状态、手动更新入口和最近一次同步任务结果。" />
         {message ? (
           <p className="mb-4 max-w-full whitespace-pre-wrap break-all rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white/70">
             {message}
           </p>
         ) : null}
+
         {!sourceRows.length ? (
           <EmptyState title="暂无来源" description="先去“添加公众号来源”页面创建来源，再回来执行同步。" />
         ) : (
@@ -303,12 +315,8 @@ export default function CollectPage() {
                         </span>
                         {latestJob ? <span className={`text-xs ${jobTone(latestJob.status)}`}>任务：{statusLabel(latestJob.status)}</span> : null}
                       </div>
-                      <p className="mt-2 break-all text-sm text-white/55">
-                        凭据：{summarizeWechatCredentialLink(source.credential?.raw_link)}
-                      </p>
-                      <p className="mt-1 break-all text-sm text-white/55">
-                        主页：{summarizeWechatHomeLink(source.public_home_link, source.biz)}
-                      </p>
+                      <p className="mt-2 break-all text-sm text-white/55">凭据：{summarizeWechatCredentialLink(source.credential?.raw_link)}</p>
+                      <p className="mt-1 break-all text-sm text-white/55">主页：{summarizeWechatHomeLink(source.public_home_link, source.biz)}</p>
                       <p className="mt-1 text-xs text-white/45">biz：{source.biz}</p>
                       {source.tags.length ? (
                         <div className="mt-3">
@@ -366,20 +374,69 @@ export default function CollectPage() {
                           <Label>近几天</Label>
                           <Input
                             value={settings.sinceDays}
-                            onChange={(event) => updateSourceSettings(source.id, { sinceDays: event.target.value })}
+                            onChange={(event) =>
+                              updateSourceSettings(source.id, {
+                                sinceDays: event.target.value,
+                                dateFrom: "",
+                                dateTo: "",
+                              })
+                            }
                             placeholder="留空表示不限天数"
                           />
                         </div>
                       </div>
+
+                      <div className="mt-4 rounded-[18px] border border-white/10 bg-black/20 p-4">
+                        <p className="text-sm text-white">精确日期区间</p>
+                        <p className="mt-1 text-xs leading-5 text-white/45">填写开始和结束日期后，会优先按日期区间同步，不再使用“近几天”。</p>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>开始日期</Label>
+                            <Input
+                              type="date"
+                              value={settings.dateFrom}
+                              onChange={(event) =>
+                                updateSourceSettings(source.id, {
+                                  dateFrom: event.target.value,
+                                  sinceDays: "",
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label>结束日期</Label>
+                            <Input
+                              type="date"
+                              value={settings.dateTo}
+                              onChange={(event) =>
+                                updateSourceSettings(source.id, {
+                                  dateTo: event.target.value,
+                                  sinceDays: "",
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <ActionButton variant="ghost" onClick={() => updateSourceSettings(source.id, { sinceDays: "7" })}>
+                        <ActionButton
+                          variant="ghost"
+                          onClick={() => updateSourceSettings(source.id, { sinceDays: "7", dateFrom: "", dateTo: "" })}
+                        >
                           近 7 天
                         </ActionButton>
-                        <ActionButton variant="ghost" onClick={() => updateSourceSettings(source.id, { sinceDays: "30" })}>
+                        <ActionButton
+                          variant="ghost"
+                          onClick={() => updateSourceSettings(source.id, { sinceDays: "30", dateFrom: "", dateTo: "" })}
+                        >
                           近 30 天
                         </ActionButton>
-                        <ActionButton variant="ghost" onClick={() => updateSourceSettings(source.id, { sinceDays: "" })}>
-                          不限天数
+                        <ActionButton
+                          variant="ghost"
+                          onClick={() => updateSourceSettings(source.id, { sinceDays: "", dateFrom: "", dateTo: "" })}
+                        >
+                          清空范围
                         </ActionButton>
                       </div>
                     </div>
@@ -391,14 +448,20 @@ export default function CollectPage() {
                           <p className="mt-1 text-xs text-white/50">
                             {latestJob ? `阶段：${stageLabel(latestJob.current_stage)}，状态：${statusLabel(latestJob.status)}` : "还没有执行过同步任务。"}
                           </p>
+                          {latestJob?.date_from || latestJob?.date_to ? (
+                            <p className="mt-1 text-xs text-white/40">
+                              时间范围：{latestJob.date_from ?? "不限"} 至 {latestJob.date_to ?? "不限"}
+                            </p>
+                          ) : latestJob?.since_days ? (
+                            <p className="mt-1 text-xs text-white/40">范围：近 {latestJob.since_days} 天</p>
+                          ) : null}
                         </div>
                       </div>
                       {latestJob ? (
                         <div className="mt-4 min-w-0 grid gap-2 whitespace-pre-wrap break-all text-sm leading-6 text-white/75">
                           <p>当前文章：{latestJob.current_article_title ?? "--"}</p>
                           <p>
-                            处理进度：{latestJob.processed_count}/
-                            {latestJob.total_candidates != null ? latestJob.total_candidates : "--"}
+                            处理进度：{latestJob.processed_count}/{latestJob.total_candidates != null ? latestJob.total_candidates : "--"}
                           </p>
                           <p>
                             新增：{latestJob.imported_count} / 更新：{latestJob.updated_count} / 失败：{latestJob.failed_count}
@@ -416,9 +479,7 @@ export default function CollectPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm text-white">手动更新凭据</p>
-                        <p className="mt-1 text-xs text-white/50">
-                          当凭据失效、需要刷新或你已经拿到新的 profile_ext 链接时，在这里手动粘贴并更新。
-                        </p>
+                        <p className="mt-1 text-xs text-white/50">当凭据失效、需要刷新或你已经拿到新的 profile_ext 链接时，在这里手动粘贴并更新。</p>
                       </div>
                       <ActionButton
                         variant={source.credential_status === "refresh_required" ? "solid" : "ghost"}

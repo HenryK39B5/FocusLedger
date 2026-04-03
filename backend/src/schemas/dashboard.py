@@ -23,6 +23,8 @@ class IngestionJobCreate(SchemaBase):
     page_start: int = 1
     page_end: int = 20
     since_days: int | None = None
+    date_from: str | None = None
+    date_to: str | None = None
 
 
 class IngestionJobRead(SchemaBase):
@@ -33,6 +35,8 @@ class IngestionJobRead(SchemaBase):
     page_start: int
     page_end: int
     since_days: int | None = None
+    date_from: str | None = None
+    date_to: str | None = None
     current_stage: str | None = None
     current_article_title: str | None = None
     current_article_url: str | None = None

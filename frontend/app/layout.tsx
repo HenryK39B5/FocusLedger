@@ -5,7 +5,10 @@ import { Sidebar, Shell } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "FocusLedger",
-  description: "聚焦公众号文章的采集、整理、浏览与日报输出。",
+  description: "聚焦公众号文章的采集、整理、浏览与 Notebook 工作区。",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

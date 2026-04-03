@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="8" fill="#0c1220"/>
+  <!-- Golden accent bar top-left -->
+  <rect x="8" y="8" width="5" height="16" rx="2.5" fill="#f7c66b" opacity="0.9"/>
+  <!-- Three horizontal lines (article/document semantic) -->
+  <rect x="16" y="9" width="8" height="2.5" rx="1.25" fill="#f7c66b"/>
+  <rect x="16" y="14.75" width="6" height="2.5" rx="1.25" fill="#f7c66b" opacity="0.7"/>
+  <rect x="16" y="20.5" width="7" height="2.5" rx="1.25" fill="#f7c66b" opacity="0.5"/>
+</svg>

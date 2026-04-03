@@ -33,6 +33,54 @@ body {
   font-family: var(--font-body);
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(247, 198, 107, 0.45) rgba(255, 255, 255, 0.06);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(247, 198, 107, 0.5), rgba(122, 144, 255, 0.38));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 214, 134, 0.7), rgba(122, 144, 255, 0.5));
+  background-clip: padding-box;
+}
+
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(247, 198, 107, 0.45) rgba(255, 255, 255, 0.05);
+}
+
+.scrollbar-dark::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(247, 198, 107, 0.52), rgba(114, 140, 255, 0.4));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -50,6 +98,8 @@ select {
   color: rgb(var(--fg));
   background-color: rgba(255, 255, 255, 0.05);
   color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 select option,

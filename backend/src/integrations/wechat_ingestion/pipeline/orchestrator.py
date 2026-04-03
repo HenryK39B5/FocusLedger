@@ -52,6 +52,8 @@ class WechatIngestionPipeline:
         page_start: int = 1,
         page_end: int = 20,
         since_days: int | None = 7,
+        date_from: str | None = None,
+        date_to: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> IngestionOutcome:
         outcome = IngestionOutcome(message="采集完成", credential_status_after_run=source.credential_status)
@@ -86,6 +88,8 @@ class WechatIngestionPipeline:
             page_start,
             page_end,
             since_days=since_days,
+            date_from=date_from,
+            date_to=date_to,
         )
         if article_list_result.error:
             outcome.failed_count = 1

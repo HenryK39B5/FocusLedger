@@ -259,52 +259,34 @@ class RuleBasedProvider:
             "analysis_mode": "rule_fallback",
         }
 
-    def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
-        date = context.get("date", "")
-        articles = context.get("articles", [])
-        groups = context.get("source_groups", [])
-        top_tags = context.get("top_topic_tags", [])
-        top_entities = context.get("top_entities", [])
-
-        overview_parts: list[str] = []
-        if articles:
-            overview_parts.append(f"当日共纳入 {len(articles)} 篇文章，覆盖 {len(groups)} 个来源分组。")
-        if top_tags:
-            overview_parts.append("高频主题包括 " + "、".join(f"{tag}({count})" for tag, count in top_tags[:5]) + "。")
-        if top_entities:
-            overview_parts.append("高频实体包括 " + "、".join(f"{name}({count})" for name, count in top_entities[:5]) + "。")
-        overview = " ".join(overview_parts) if overview_parts else "当日暂无可分析文章。"
-
-        sections: list[dict[str, Any]] = []
-        for group in groups[:5]:
-            bullets = []
-            for article in group.get("articles", [])[:3]:
-                summary = article.get("summary") or article.get("title") or ""
-                bullets.append(f"{article.get('source_name', '')}：{article.get('title', '')}。{_truncate(summary, 90)}")
-            sections.append(
-                {
-                    "title": group.get("group") or "未分组",
-                    "summary": f"{group.get('article_count', 0)} 篇文章，来自 {group.get('source_count', 0)} 个公众号。",
-                    "bullets": bullets,
-                    "article_ids": [article.get("id") for article in group.get("articles", [])[:5] if article.get("id")],
-                }
-            )
-
-        follow_ups = [f"继续跟踪 {tag} 的新增文章和后续变化。" for tag, _count in top_tags[:5]]
-        title = f"{date} 公众号日报" if date else "公众号日报"
-        return {
-            "title": title,
-            "overview": overview,
-            "sections": sections,
-            "follow_ups": follow_ups,
-            "report_markdown": _markdown_from_sections(title, overview, sections, follow_ups),
-        }
-
     def embed_text(self, text: str) -> list[float]:
         return _hash_embed(text, self.settings.embed_dimension)
 
     def classify_source(self, source_name: str, article_titles: list[str]) -> dict[str, Any]:
         raise RuntimeError("LLM provider unavailable; source classification requires a real LLM API")
+
+    def answer_notebook_question(
+        self,
+        *,
+        notebook_name: str,
+        notebook_description: str | None,
+        history: list[dict[str, Any]],
+        articles: list[dict[str, Any]],
+        question: str,
+    ) -> dict[str, Any]:
+        raise RuntimeError("LLM provider unavailable; notebook chat requires a real LLM API")
+
+    def generate_podcast_script(
+        self,
+        *,
+        notebook_name: str,
+        notebook_description: str | None,
+        podcast_format: str,
+        target_minutes: int,
+        focus_prompt: str | None,
+        articles: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        raise RuntimeError("LLM provider unavailable; podcast script generation requires a real LLM API")
 
 
 @dataclass
@@ -490,56 +472,189 @@ class OpenAICompatibleProvider:
             "reason": str(data.get("reason") or "").strip() or None,
         }
 
-    def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
+    def answer_notebook_question(
+        self,
+        *,
+        notebook_name: str,
+        notebook_description: str | None,
+        history: list[dict[str, Any]],
+        articles: list[dict[str, Any]],
+        question: str,
+    ) -> dict[str, Any]:
         if not self.settings.openai_api_key:
-            return RuleBasedProvider(self.settings).generate_daily_report(context)
+            raise RuntimeError("LLM API key is not configured")
 
         system = (
-            "你是一名严谨的中文财经日报编辑。"
-            "你必须只返回 JSON 对象，不要输出代码块、解释或额外说明。"
+            "你正在 FocusLedger 中工作。"
+            "FocusLedger 是一个面向中文微信公众号文章的本地研究与内容整理工具，用户会先把公众号文章同步到本地，再把相关文章放入 Notebook 作为专题来源。"
+            "Notebook 的定位是一个围绕特定研究主题组织来源文章、持续提问、整理观点和生成后续输出的工作区。"
+            "你在这里不是做泛化闲聊，而是作为严谨的中文研究助理，围绕当前 Notebook 中的来源文章帮助用户理解、比较、归纳和判断。"
+            "你必须优先依据提供的 Notebook 说明、历史对话和来源文章作答，不要编造来源中没有的信息。"
+            "如果材料不足以支撑明确结论，要直接说明信息不足，不要装作已经确认。"
+            "你必须只返回 JSON 对象，不要解释，不要代码块，不要额外文本。"
         )
         user = (
-            "请根据给定的公众号文章集合生成一份日报。"
-            "日报要综合利用来源分组、来源标签、文章摘要和文章主题标签。\n"
+            "请基于给定 Notebook 上下文回答当前问题。\n"
             "输出 JSON：\n"
             "{\n"
-            '  "title": "日报标题",\n'
-            '  "overview": "整体概览",\n'
-            '  "sections": [{"title": "...", "summary": "...", "bullets": ["..."], "article_ids": ["..."]}],\n'
-            '  "follow_ups": ["..."]\n'
-            "}\n"
-            "要求：sections 2 到 6 个；每个 section 2 到 5 条 bullet；article_ids 必须来自输入的 article.id。\n"
-            f"输入数据：\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+            '  "answer": "一段到三段中文回答",\n'
+            '  "citations": ["article_id1", "article_id2"]\n'
+            "}\n\n"
+            "要求：\n"
+            "1. 回答应直接回应问题，优先帮助用户完成研究、梳理和比较，而不是泛泛而谈。\n"
+            "2. 如果来源文章之间存在明显分歧，要指出主要分歧点，不要强行合并成一个结论。\n"
+            "3. 如果 Notebook 里的材料不足以支持明确结论，要明确说信息不足。\n"
+            "4. citations 只允许从给定 article_id 中选择 0 到 4 个最相关的文章。\n"
+            "5. 不要输出 markdown 标题，不要把 citations 写进 answer 正文。\n"
+            "6. 回答可以适度组织结构，但不要写成模板化空话。\n\n"
+            f"Notebook 名称：{notebook_name}\n"
+            f"Notebook 说明：{notebook_description or '无'}\n"
+            f"最近对话：{json.dumps(history, ensure_ascii=False)}\n"
+            f"来源文章：{json.dumps(articles, ensure_ascii=False)}\n"
+            f"当前问题：{question.strip()}"
+        )
+        raw = self._chat_completion(system=system, user=user)
+        data = _extract_json_payload(raw)
+        answer = _normalize_text(str(data.get("answer") or ""))
+        citations = _clean_list(data.get("citations"), limit=4)
+        if not answer:
+            raise ValueError("LLM notebook answer is empty")
+        allowed_ids = {str(item.get("id")) for item in articles if item.get("id")}
+        citations = [item for item in citations if item in allowed_ids]
+        return {
+            "answer": answer,
+            "citations": citations,
+        }
+
+    def generate_podcast_script(
+        self,
+        *,
+        notebook_name: str,
+        notebook_description: str | None,
+        podcast_format: str,
+        target_minutes: int,
+        focus_prompt: str | None,
+        articles: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not self.settings.openai_api_key:
+            raise RuntimeError("LLM API key is not configured")
+
+        format_instructions = {
+            "brief": "Brief：单人超短综述，重点是快速交代这个 Notebook 的核心信息，不展开过多细节。",
+            "explainer": "Explainer：单人专题讲解，重点是把主题讲清楚，结构完整，有背景、有主线、有结论。",
+            "commentary": "Commentary：单人研究评论，重点是提炼值得关注的判断、分歧和后续观察点，而不只是复述。",
+        }
+        active_instruction = format_instructions.get(
+            podcast_format,
+            format_instructions["explainer"],
         )
 
-        try:
-            raw = self._chat_completion(system=system, user=user)
-            data = _extract_json_payload(raw)
-            sections = []
-            for section in data.get("sections", []) or []:
-                if not isinstance(section, dict):
+        system = (
+            "你正在 FocusLedger 中工作。"
+            "FocusLedger 是一个面向中文微信公众号文章的本地研究与内容整理工具，用户会把相关文章放入 Notebook，围绕一个主题持续研究。"
+            "现在你的任务不是生成音频，而是先为后续音频渲染写出一份适合朗读和收听的中文播客脚本。"
+            "当前阶段脚本全部是单人讲述，不要写成双人对谈。"
+            "你必须优先依据给定的 Notebook 说明和来源文章组织脚本，不要编造来源中没有的信息。"
+            "你必须只返回 JSON 对象，不要解释，不要代码块，不要额外文本。"
+        )
+        user = (
+            "请为当前 Notebook 生成播客脚本。\n"
+            "脚本格式说明：\n"
+            f"{active_instruction}\n\n"
+            "输出 JSON：\n"
+            "{\n"
+            '  "title": "脚本标题",\n'
+            '  "one_line_summary": "一句话概括",\n'
+            '  "speakers": [{"id": "host", "display_name": "主持人", "voice_hint": "single_host"}],\n'
+            '  "sections": [\n'
+            '    {"id": "intro", "title": "段落标题", "objective": "这一段要完成什么", "turns": [{"speaker_id": "host", "text": "可朗读文本", "citations": ["article_id"]}]}\n'
+            "  ],\n"
+            '  "cited_article_ids": ["article_id1", "article_id2"]\n'
+            "}\n\n"
+            "要求：\n"
+            "1. 只允许单个 speaker：host。\n"
+            "2. sections 控制在 3 到 6 段。\n"
+            "3. 每段 turns 当前只输出 1 个 turn，speaker_id 固定为 host。\n"
+            "4. 文本必须适合听觉消费，避免书面腔过重，适合直接朗读。\n"
+            "5. 不要空喊口号，不要模板化结尾，不要假装知道来源里没有的事实。\n"
+            "6. cited_article_ids 与 turn.citations 只能从给定 article_id 中选择。\n"
+            "7. 目标时长约为 "
+            f"{target_minutes} 分钟，请控制整体信息密度和脚本长度。\n"
+            "8. 如果来源之间存在明显分歧，要明确点出，不要强行合并。\n"
+            "9. 如果用户给了 focus_prompt，要优先围绕那个重点组织脚本。\n\n"
+            f"Notebook 名称：{notebook_name}\n"
+            f"Notebook 说明：{notebook_description or '无'}\n"
+            f"目标格式：{podcast_format}\n"
+            f"用户重点要求：{focus_prompt or '无'}\n"
+            f"来源文章：{json.dumps(articles, ensure_ascii=False)}"
+        )
+        raw = self._chat_completion(system=system, user=user)
+        data = _extract_json_payload(raw)
+
+        title = str(data.get("title") or "").strip()
+        if not title:
+            raise ValueError("podcast script title is empty")
+
+        one_line_summary = str(data.get("one_line_summary") or "").strip() or None
+        speakers = data.get("speakers") if isinstance(data.get("speakers"), list) else []
+        if not speakers:
+            speakers = [{"id": "host", "display_name": "主持人", "voice_hint": "single_host"}]
+
+        allowed_ids = {str(item.get("id")) for item in articles if item.get("id")}
+        sections_raw = data.get("sections") if isinstance(data.get("sections"), list) else []
+        sections: list[dict[str, Any]] = []
+        cited_ids: list[str] = []
+
+        for index, section in enumerate(sections_raw):
+            if not isinstance(section, dict):
+                continue
+            turns_raw = section.get("turns") if isinstance(section.get("turns"), list) else []
+            turns: list[dict[str, Any]] = []
+            for turn in turns_raw[:1]:
+                if not isinstance(turn, dict):
                     continue
-                sections.append(
+                text = _normalize_text(str(turn.get("text") or ""))
+                citations = [item for item in _clean_list(turn.get("citations"), limit=4) if item in allowed_ids]
+                if not text:
+                    continue
+                turns.append(
                     {
-                        "title": str(section.get("title") or "未命名分区").strip(),
-                        "summary": str(section.get("summary") or "").strip() or None,
-                        "bullets": _clean_list(section.get("bullets"), limit=5),
-                        "article_ids": _clean_list(section.get("article_ids"), limit=10),
+                        "speaker_id": "host",
+                        "text": text,
+                        "citations": citations,
                     }
                 )
-            title = str(data.get("title") or f"{context.get('date', '')} 公众号日报").strip()
-            overview = str(data.get("overview") or "").strip()
-            follow_ups = _clean_list(data.get("follow_ups"), limit=5)
-            return {
-                "title": title,
-                "overview": overview,
-                "sections": sections,
-                "follow_ups": follow_ups,
-                "report_markdown": _markdown_from_sections(title, overview, sections, follow_ups),
-            }
-        except Exception as exc:  # pragma: no cover
-            logger.warning("LLM daily report failed, fallback to rule provider: %s", exc)
-            return RuleBasedProvider(self.settings).generate_daily_report(context)
+                for citation_id in citations:
+                    if citation_id not in cited_ids:
+                        cited_ids.append(citation_id)
+            if not turns:
+                continue
+            sections.append(
+                {
+                    "id": str(section.get("id") or f"section_{index + 1}").strip() or f"section_{index + 1}",
+                    "title": str(section.get("title") or f"第 {index + 1} 段").strip() or f"第 {index + 1} 段",
+                    "objective": str(section.get("objective") or "").strip() or None,
+                    "turns": turns,
+                }
+            )
+
+        if not sections:
+            raise ValueError("podcast script sections are empty")
+
+        explicit_citations = [item for item in _clean_list(data.get("cited_article_ids"), limit=12) if item in allowed_ids]
+        for citation_id in explicit_citations:
+            if citation_id not in cited_ids:
+                cited_ids.append(citation_id)
+
+        return {
+            "title": title,
+            "format": podcast_format,
+            "target_minutes": target_minutes,
+            "one_line_summary": one_line_summary,
+            "speakers": speakers,
+            "sections": sections,
+            "cited_article_ids": cited_ids,
+        }
 
     def embed_text(self, text: str) -> list[float]:
         return RuleBasedProvider(self.settings).embed_text(text)

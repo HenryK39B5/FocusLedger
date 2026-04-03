@@ -64,6 +64,64 @@ def normalize_publish_date(value: str | None, created_at: datetime | None = None
 
 
 class ArticleService:
+    def _query_filtered_articles(
+        self,
+        db: Session,
+        *,
+        source_id: str | None = None,
+        q: str | None = None,
+        sort: str = "latest",
+        date_from: str | None = None,
+        date_to: str | None = None,
+        llm_status: str | None = None,
+        favorited_only: bool = False,
+        tags: list[str] | None = None,
+    ) -> list[Article]:
+        stmt = select(Article).join(ArticleSource, Article.source_id == ArticleSource.id)
+        if source_id:
+            stmt = stmt.where(Article.source_id == source_id)
+        if q:
+            pattern = f"%{q.strip().lower()}%"
+            stmt = stmt.where(
+                or_(
+                    func.lower(Article.title).like(pattern),
+                    func.lower(func.coalesce(Article.summary, "")).like(pattern),
+                    func.lower(func.coalesce(Article.raw_text, "")).like(pattern),
+                    func.lower(ArticleSource.name).like(pattern),
+                )
+            )
+
+        articles = list(db.scalars(stmt).all())
+
+        filtered: list[Article] = []
+        normalized_filter_tags = self._normalized_tags(tags)
+        for article in articles:
+            publish_date = normalize_publish_date(article.publish_time, article.created_at)
+            if date_from and publish_date and publish_date < date_from:
+                continue
+            if date_from and not publish_date:
+                continue
+            if date_to and publish_date and publish_date > date_to:
+                continue
+            if date_to and not publish_date:
+                continue
+            if llm_status and article.llm_summary_status != llm_status:
+                continue
+            if favorited_only and not article.is_favorited:
+                continue
+            if normalized_filter_tags:
+                article_tags = self._normalized_tags(article.tags)
+                if not all(self._tag_matches(article_tags, tag) for tag in normalized_filter_tags):
+                    continue
+            filtered.append(article)
+
+        reverse = sort != "oldest"
+        filtered.sort(
+            key=lambda article: parse_publish_datetime(article.publish_time, article.created_at) or article.created_at,
+            reverse=reverse,
+        )
+        return filtered
+
     def _tag_matches(self, article_tags: list[str], selected_tag: str) -> bool:
         cleaned_selected = str(selected_tag).strip()
         if not cleaned_selected:
@@ -118,48 +176,16 @@ class ArticleService:
         favorited_only: bool = False,
         tags: list[str] | None = None,
     ) -> tuple[list[Article], int]:
-        stmt = select(Article).join(ArticleSource, Article.source_id == ArticleSource.id)
-        if source_id:
-            stmt = stmt.where(Article.source_id == source_id)
-        if q:
-            pattern = f"%{q.strip().lower()}%"
-            stmt = stmt.where(
-                or_(
-                    func.lower(Article.title).like(pattern),
-                    func.lower(func.coalesce(Article.summary, "")).like(pattern),
-                    func.lower(func.coalesce(Article.raw_text, "")).like(pattern),
-                    func.lower(ArticleSource.name).like(pattern),
-                )
-            )
-
-        articles = list(db.scalars(stmt).all())
-
-        filtered: list[Article] = []
-        normalized_filter_tags = self._normalized_tags(tags)
-        for article in articles:
-            publish_date = normalize_publish_date(article.publish_time, article.created_at)
-            if date_from and publish_date and publish_date < date_from:
-                continue
-            if date_from and not publish_date:
-                continue
-            if date_to and publish_date and publish_date > date_to:
-                continue
-            if date_to and not publish_date:
-                continue
-            if llm_status and article.llm_summary_status != llm_status:
-                continue
-            if favorited_only and not article.is_favorited:
-                continue
-            if normalized_filter_tags:
-                article_tags = self._normalized_tags(article.tags)
-                if not all(self._tag_matches(article_tags, tag) for tag in normalized_filter_tags):
-                    continue
-            filtered.append(article)
-
-        reverse = sort != "oldest"
-        filtered.sort(
-            key=lambda article: parse_publish_datetime(article.publish_time, article.created_at) or article.created_at,
-            reverse=reverse,
+        filtered = self._query_filtered_articles(
+            db,
+            source_id=source_id,
+            q=q,
+            sort=sort,
+            date_from=date_from,
+            date_to=date_to,
+            llm_status=llm_status,
+            favorited_only=favorited_only,
+            tags=tags,
         )
 
         total = len(filtered)
@@ -284,12 +310,10 @@ class ArticleService:
         max_items: int = 100,
         target: str = "pending",
     ) -> tuple[list[str], list[str]]:
-        candidates, _total = self.list_articles(
+        candidates = self._query_filtered_articles(
             db,
             source_id=source_id,
             q=q,
-            page=1,
-            page_size=max(max_items, 1),
             sort="latest",
             date_from=date_from,
             date_to=date_to,
@@ -304,6 +328,8 @@ class ArticleService:
             candidates = list(candidates)
         else:
             raise ValueError("invalid batch analyze target")
+
+        candidates = candidates[: max(max_items, 1)]
 
         analyzed_ids: list[str] = []
         failed_ids: list[str] = []

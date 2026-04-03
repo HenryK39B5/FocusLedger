@@ -8,11 +8,10 @@ from src.api.routes import (
     health_router,
     ingestion_jobs_router,
     ingestions_router,
-    qclaw_router,
-    reports_router,
+    notebooks_router,
     sources_router,
-    wechat_router,
     status_router,
+    wechat_router,
 )
 from src.core.config import get_settings
 from src.core.logging import configure_logging
@@ -37,12 +36,11 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix=settings.api_prefix)
     app.include_router(sources_router, prefix=settings.api_prefix)
     app.include_router(articles_router, prefix=settings.api_prefix)
-    app.include_router(reports_router, prefix=settings.api_prefix)
-    app.include_router(qclaw_router, prefix=settings.api_prefix)
+    app.include_router(notebooks_router, prefix=settings.api_prefix)
     app.include_router(ingestion_jobs_router, prefix=settings.api_prefix)
     app.include_router(ingestions_router, prefix=settings.api_prefix)
-    app.include_router(wechat_router, prefix=settings.api_prefix)
     app.include_router(status_router, prefix=settings.api_prefix)
+    app.include_router(wechat_router, prefix=settings.api_prefix)
 
     @app.on_event("startup")
     def on_startup() -> None:

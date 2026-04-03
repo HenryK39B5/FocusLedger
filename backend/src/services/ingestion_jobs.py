@@ -61,6 +61,8 @@ class IngestionJobService:
             page_start=payload.page_start,
             page_end=payload.page_end,
             since_days=payload.since_days,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
             current_stage="verifying_credential",
             message="任务已创建，等待执行。",
         )
@@ -183,6 +185,8 @@ class IngestionJobService:
                 page_start=job.page_start,
                 page_end=job.page_end,
                 since_days=job.since_days,
+                date_from=job.date_from,
+                date_to=job.date_to,
                 progress_callback=progress_callback,
             )
             credential_service.record_sync_result(
@@ -228,6 +232,8 @@ class IngestionJobService:
             page_start=job.page_start,
             page_end=job.page_end,
             since_days=job.since_days,
+            date_from=job.date_from,
+            date_to=job.date_to,
             current_stage=job.current_stage,
             current_article_title=job.current_article_title,
             current_article_url=job.current_article_url,

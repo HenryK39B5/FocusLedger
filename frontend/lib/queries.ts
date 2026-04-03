@@ -1,31 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-export function useDailyReport(options?: {
-  date?: string;
-  sourceId?: string;
-  sourceGroup?: string;
-  limit?: number;
-}) {
-  return useQuery({
-    queryKey: [
-      "daily-report",
-      options?.date ?? "",
-      options?.sourceId ?? "all",
-      options?.sourceGroup ?? "all",
-      options?.limit ?? 20,
-    ],
-    queryFn: () =>
-      api.dailyReport({
-        date: options?.date,
-        sourceId: options?.sourceId,
-        sourceGroup: options?.sourceGroup,
-        limit: options?.limit ?? 20,
-      }),
-    enabled: Boolean(options?.date),
-  });
-}
-
 export function useSources() {
   return useQuery({
     queryKey: ["sources"],
@@ -101,6 +76,50 @@ export function useArticles(options?: {
   });
 }
 
+export function useNotebooks() {
+  return useQuery({
+    queryKey: ["notebooks"],
+    queryFn: () => api.notebooks(),
+  });
+}
+
+export function useNotebook(notebookId: string | null) {
+  return useQuery({
+    queryKey: ["notebook", notebookId ?? ""],
+    queryFn: () => api.notebook(notebookId as string),
+    enabled: Boolean(notebookId),
+  });
+}
+
+export function useNotebookChat(notebookId: string | null) {
+  return useQuery({
+    queryKey: ["notebook-chat", notebookId ?? ""],
+    queryFn: () => api.notebookChat(notebookId as string),
+    enabled: Boolean(notebookId),
+  });
+}
+
+export function useNotebookPodcasts(notebookId: string | null) {
+  return useQuery({
+    queryKey: ["notebook-podcasts", notebookId ?? ""],
+    queryFn: () => api.notebookPodcasts(notebookId as string),
+    enabled: Boolean(notebookId),
+  });
+}
+
+export function useNotebookPodcastAudio(
+  notebookId: string | null,
+  scriptId: string | null,
+  options?: { enabled?: boolean; refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: ["notebook-podcast-audio", notebookId ?? "", scriptId ?? ""],
+    queryFn: () => api.notebookPodcastAudio(notebookId as string, scriptId as string),
+    enabled: Boolean(notebookId && scriptId && (options?.enabled ?? true)),
+    refetchInterval: options?.refetchInterval ?? false,
+  });
+}
+
 export function useStatus() {
   return useQuery({
     queryKey: ["status"],
@@ -165,14 +184,12 @@ export function useMutations() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["sources"] });
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
-        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
       },
     }),
     deleteArticle: useMutation({
       mutationFn: (articleId: string) => api.deleteArticle(articleId),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
-        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
       },
     }),
     updateArticle: useMutation({
@@ -186,7 +203,96 @@ export function useMutations() {
       onSuccess: async (_data, variables) => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
         await queryClient.invalidateQueries({ queryKey: ["article", variables.articleId] });
-        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
+      },
+    }),
+    createNotebook: useMutation({
+      mutationFn: (payload: { name: string; emoji?: string; description?: string | null }) => api.createNotebook(payload),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+      },
+    }),
+    updateNotebook: useMutation({
+      mutationFn: ({
+        notebookId,
+        payload,
+      }: {
+        notebookId: string;
+        payload: { name?: string; emoji?: string; description?: string | null };
+      }) => api.updateNotebook(notebookId, payload),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+        await queryClient.invalidateQueries({ queryKey: ["notebook", variables.notebookId] });
+      },
+    }),
+    deleteNotebook: useMutation({
+      mutationFn: (notebookId: string) => api.deleteNotebook(notebookId),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+      },
+    }),
+    addNotebookArticles: useMutation({
+      mutationFn: ({ notebookId, articleIds }: { notebookId: string; articleIds: string[] }) =>
+        api.addNotebookArticles(notebookId, articleIds),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+        await queryClient.invalidateQueries({ queryKey: ["notebook", variables.notebookId] });
+      },
+    }),
+    removeNotebookArticle: useMutation({
+      mutationFn: ({ notebookId, articleId }: { notebookId: string; articleId: string }) =>
+        api.removeNotebookArticle(notebookId, articleId),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+        await queryClient.invalidateQueries({ queryKey: ["notebook", variables.notebookId] });
+      },
+    }),
+    askNotebookChat: useMutation({
+      mutationFn: ({ notebookId, message }: { notebookId: string; message: string }) =>
+        api.askNotebookChat(notebookId, message),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebook-chat", variables.notebookId] });
+      },
+    }),
+    clearNotebookChat: useMutation({
+      mutationFn: (notebookId: string) => api.clearNotebookChat(notebookId),
+      onSuccess: async (_data, notebookId) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebook-chat", notebookId] });
+      },
+    }),
+    generateNotebookPodcast: useMutation({
+      mutationFn: ({
+        notebookId,
+        payload,
+      }: {
+        notebookId: string;
+        payload: { format: string; targetMinutes: number; focusPrompt?: string; articleIds?: string[] };
+      }) => api.generateNotebookPodcast(notebookId, payload),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebook-podcasts", variables.notebookId] });
+      },
+    }),
+    deleteNotebookPodcast: useMutation({
+      mutationFn: ({ notebookId, scriptId }: { notebookId: string; scriptId: string }) =>
+        api.deleteNotebookPodcast(notebookId, scriptId),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebook-podcasts", variables.notebookId] });
+      },
+    }),
+    createNotebookPodcastAudio: useMutation({
+      mutationFn: ({
+        notebookId,
+        scriptId,
+        options,
+      }: {
+        notebookId: string;
+        scriptId: string;
+        options?: { voice?: string; rate?: string };
+      }) => api.createNotebookPodcastAudio(notebookId, scriptId, options),
+      onSuccess: async (_data, variables) => {
+        await queryClient.invalidateQueries({ queryKey: ["notebook-podcasts", variables.notebookId] });
+        await queryClient.invalidateQueries({
+          queryKey: ["notebook-podcast-audio", variables.notebookId, variables.scriptId],
+        });
       },
     }),
     analyzeArticle: useMutation({
@@ -221,7 +327,6 @@ export function useMutations() {
       mutationFn: (articleIds: string[]) => api.batchDeleteArticles(articleIds),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
-        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
       },
     }),
     runIngestion: useMutation({
@@ -233,12 +338,18 @@ export function useMutations() {
         }),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
-        await queryClient.invalidateQueries({ queryKey: ["daily-report"] });
         await queryClient.invalidateQueries({ queryKey: ["sources"] });
       },
     }),
     createIngestionJob: useMutation({
-      mutationFn: (payload: { sourceId: string; pageStart?: number; pageEnd?: number; sinceDays?: number | null }) =>
+      mutationFn: (payload: {
+        sourceId: string;
+        pageStart?: number;
+        pageEnd?: number;
+        sinceDays?: number | null;
+        dateFrom?: string | null;
+        dateTo?: string | null;
+      }) =>
         api.createIngestionJob(payload),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["ingestion-jobs"] });

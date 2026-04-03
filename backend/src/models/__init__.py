@@ -5,6 +5,10 @@ from src.models.article_source import ArticleSource
 from src.models.feedback_event import FeedbackEvent
 from src.models.ingestion_job import IngestionJob
 from src.models.novelty_analysis import NoveltyAnalysis
+from src.models.notebook import Notebook
+from src.models.notebook_article import NotebookArticle
+from src.models.notebook_chat_message import NotebookChatMessage
+from src.models.notebook_podcast_script import NotebookPodcastScript
 from src.models.recommendation_result import RecommendationResult
 from src.models.source_credential import SourceCredential
 from src.models.user_profile import UserProfile

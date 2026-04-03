@@ -185,7 +185,7 @@ export default function SourcesPage() {
 
     if (isEditing && draft) {
       return (
-        <div key={source.id} className="rounded-[24px] border border-white/10 bg-black/20 p-5">
+        <div key={source.id} className="rounded-[20px] border border-white/10 bg-black/20 p-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <Label>名称</Label>
@@ -227,11 +227,11 @@ export default function SourcesPage() {
     }
 
     return (
-      <div key={source.id} className="rounded-[24px] border border-white/10 bg-black/20 px-5 py-4">
+      <div key={source.id} className="rounded-[20px] border border-white/10 bg-black/20 px-4 py-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.9fr)] xl:items-start">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-base font-medium text-white">{source.name}</h4>
+              <h4 className="text-[15px] font-medium text-white">{source.name}</h4>
               <span className={`rounded-full border px-2.5 py-1 text-[11px] ${statusTone(source.credential_status)}`}>
                 {credentialStatusLabel(source.credential_status)}
               </span>
@@ -242,8 +242,8 @@ export default function SourcesPage() {
               ) : null}
             </div>
 
-            <p className="mt-2 text-sm text-white/48">{summarizeWechatHomeLink(source.public_home_link, source.biz)}</p>
-            {source.description ? <p className="mt-3 text-sm leading-6 text-white/62">{source.description}</p> : null}
+            <p className="mt-2 text-[13px] text-white/48">{summarizeWechatHomeLink(source.public_home_link, source.biz)}</p>
+            {source.description ? <p className="mt-3 text-[13px] leading-6 text-white/62">{source.description}</p> : null}
 
             {source.tags.length ? (
               <div className="mt-3">
@@ -252,7 +252,7 @@ export default function SourcesPage() {
             ) : null}
           </div>
 
-          <div className="grid gap-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
+          <div className="grid gap-3 rounded-[18px] border border-white/10 bg-white/5 p-3.5">
             <div className="grid grid-cols-2 gap-3 text-xs text-white/48">
               <div>
                 <div className="text-white/34">最后验证</div>
@@ -312,8 +312,8 @@ export default function SourcesPage() {
         </>
       }
     >
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+      <div className="grid gap-5 xl:grid-cols-[250px_minmax(0,1fr)]">
+        <section className="rounded-[24px] border border-white/10 bg-white/5 p-4">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-white/42">Groups</p>
             <h3 className="mt-2 text-xl font-semibold text-white">分组视图</h3>
@@ -324,7 +324,7 @@ export default function SourcesPage() {
             <button
               type="button"
               onClick={() => setSelectedGroup(GROUP_ALL)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition ${
+              className={`w-full rounded-[18px] border px-3.5 py-2.5 text-left text-[13px] transition ${
                 selectedGroup === GROUP_ALL
                   ? "border-white/20 bg-white/10 text-white"
                   : "border-white/10 bg-black/20 text-white/70 hover:bg-black/30"
@@ -335,7 +335,7 @@ export default function SourcesPage() {
             <button
               type="button"
               onClick={() => setSelectedGroup(GROUP_UNGROUPED)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition ${
+              className={`w-full rounded-[18px] border px-3.5 py-2.5 text-left text-[13px] transition ${
                 selectedGroup === GROUP_UNGROUPED
                   ? "border-white/20 bg-white/10 text-white"
                   : "border-white/10 bg-black/20 text-white/70 hover:bg-black/30"
@@ -348,7 +348,7 @@ export default function SourcesPage() {
                 key={group}
                 type="button"
                 onClick={() => setSelectedGroup(group)}
-                className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                className={`w-full rounded-[18px] border px-3.5 py-2.5 text-left text-[13px] transition ${
                   selectedGroup === group
                     ? "border-white/20 bg-white/10 text-white"
                     : "border-white/10 bg-black/20 text-white/70 hover:bg-black/30"
@@ -363,7 +363,7 @@ export default function SourcesPage() {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+        <section className="rounded-[24px] border border-white/10 bg-white/5 p-4">
           <div className="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-white/42">Sources</p>
@@ -373,7 +373,7 @@ export default function SourcesPage() {
               <p className="mt-1 text-sm text-white/55">共 {visibleSources.length} 个来源</p>
             </div>
             {message ? (
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">{message}</div>
+              <div className="rounded-[18px] border border-white/10 bg-black/20 px-4 py-3 text-[13px] text-white/70">{message}</div>
             ) : null}
           </div>
 

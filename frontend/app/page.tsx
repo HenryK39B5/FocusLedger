@@ -21,7 +21,7 @@ export default function HomePage() {
   return (
     <PageFrame
       title="研究台总览"
-      subtitle="围绕公众号来源、文章库和日报输出组织你的本地研究工作流。"
+      subtitle="围绕来源、文章库与 Notebook 工作区组织你的研究素材。"
       actions={
         <>
           <Link href="/sources/add">
@@ -46,15 +46,16 @@ export default function HomePage() {
               再提炼观点。
             </h3>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/62">
-              这里不是一个简单的抓取页，而是一套围绕公众号文章建立的本地研究台。来源同步、标签整理、文章收藏和日报输出，都在同一条路径里完成。
+              这里不是一个简单的抓取页，而是一套围绕公众号文章建立的本地研究台。来源同步、标签整理、文章收藏、Notebook
+              对话与播客脚本，都在同一条路径里完成。
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/collect">
                 <ActionButton variant="solid">开始同步文章</ActionButton>
               </Link>
-              <Link href="/reports">
-                <ActionButton variant="ghost">查看日报能力</ActionButton>
+              <Link href="/notebooks">
+                <ActionButton variant="ghost">进入 Notebook</ActionButton>
               </Link>
             </div>
           </div>
@@ -63,11 +64,11 @@ export default function HomePage() {
             <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
               <div className="flex items-center gap-2 text-sm text-white/72">
                 <Sparkles size={14} />
-                当前重点
+                使用建议
               </div>
               <div className="mt-4 space-y-3 text-sm leading-6 text-white/60">
-                <p>文章管理层已经独立出 LLM 总结流程，后续可以更稳定地支撑收藏、标签和 Notebook。</p>
-                <p>同步凭据保持手动更新，产品价值放在本地知识库和研究工作区上。</p>
+                <p>先同步来源文章，再用标签、收藏和 Notebook 把资料沉淀成可反复使用的研究资产。</p>
+                <p>当来源凭据失效时，只需在文章获取页更新一次，就可以继续把新文章补入本地库。</p>
               </div>
             </div>
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
@@ -94,7 +95,11 @@ export default function HomePage() {
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         <StatCard label="公众号来源" value={String(sourceItems.length)} hint="当前已保存的来源总数" />
         <StatCard label="文章总量" value={String(articles.data?.total ?? 0)} hint="文章库中可继续整理的文章" />
-        <StatCard label="最近同步提醒" value={String(countByStatus(sourceStatuses, "refresh_required"))} hint="需要手动更新凭据的来源数" />
+        <StatCard
+          label="最近同步提醒"
+          value={String(countByStatus(sourceStatuses, "refresh_required"))}
+          hint="需要手动更新凭据的来源数"
+        />
       </div>
 
       <div className="mt-8 grid gap-6 2xl:grid-cols-[1.15fr_0.85fr]">

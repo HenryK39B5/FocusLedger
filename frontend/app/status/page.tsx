@@ -22,7 +22,7 @@ export default function StatusPage() {
   return (
     <PageFrame
       title="系统状态"
-      subtitle="用于检查当前环境、后端配置和来源规模。这里不负责业务管理，只提供运行状态观察。"
+      subtitle="查看当前环境、服务配置和来源规模，便于快速确认系统状态。"
       actions={
         <ActionButton variant="ghost" onClick={() => status.refetch()}>
           <RefreshCw size={14} className="mr-2" />
@@ -33,11 +33,15 @@ export default function StatusPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="来源数" value={String(sources.data?.length ?? 0)} hint="当前已保存的公众号来源" />
         <StatCard label="环境" value={formatStatusValue(status.data?.environment)} hint="后端运行环境" />
-        <StatCard label="LLM Provider" value={formatStatusValue(status.data?.llm_provider)} hint="摘要与日报使用的分析后端" />
+        <StatCard
+          label="LLM Provider"
+          value={formatStatusValue(status.data?.llm_provider)}
+          hint="摘要、Notebook 对话与脚本生成使用的分析后端"
+        />
         <StatCard
           label="自动建表"
           value={formatStatusValue(status.data?.auto_create_schema)}
-          hint="开发模式下是否自动初始化数据表"
+          hint="启动时是否自动初始化数据表"
         />
       </div>
 
@@ -65,16 +69,16 @@ export default function StatusPage() {
             </div>
             <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
               <p className="text-white">2. 同步和浏览文章</p>
-              <p className="mt-2">同步后去文章浏览页做筛选、删除和批量清理。</p>
+              <p className="mt-2">同步后去文章浏览页面做筛选、删除和批量清理。</p>
               <Link href="/articles" className="mt-3 inline-block text-[#ffd478] hover:underline">
                 前往文章浏览
               </Link>
             </div>
             <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
-              <p className="text-white">3. 生成日报</p>
-              <p className="mt-2">日报按日期、来源和分组汇总当天文章，适合做每日跟踪。</p>
-              <Link href="/reports" className="mt-3 inline-block text-[#ffd478] hover:underline">
-                前往日报生成
+              <p className="text-white">3. 进入 Notebook</p>
+              <p className="mt-2">把文章加入工作区后，继续做 AI 对话、脚本生成和后续内容编排。</p>
+              <Link href="/notebooks" className="mt-3 inline-block text-[#ffd478] hover:underline">
+                前往 Notebooks
               </Link>
             </div>
           </div>

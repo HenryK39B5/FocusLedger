@@ -16,6 +16,8 @@ class IngestionJob(Base, IDMixin, TimestampMixin):
     page_start: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     page_end: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
     since_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    date_from: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    date_to: Mapped[str | None] = mapped_column(String(10), nullable=True)
     current_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
     current_article_title: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     current_article_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)

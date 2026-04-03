@@ -58,6 +58,24 @@ class WeChatCredentialValidationResult:
 
 class WeChatFuncs(BaseSpider):
     @staticmethod
+    def _parse_date_boundary(value: str | None, *, end_of_day: bool = False) -> datetime | None:
+        if not value:
+            return None
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            parsed = datetime.strptime(raw, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+        shanghai_tz = ZoneInfo("Asia/Shanghai")
+        if end_of_day:
+            parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+        aware = parsed.replace(tzinfo=shanghai_tz)
+        return aware.astimezone(timezone.utc)
+
+    @staticmethod
     def _result_error(
         *,
         error: str,
@@ -134,8 +152,17 @@ class WeChatFuncs(BaseSpider):
         page_start: int,
         page_end: int | None = None,
         since_days: int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> list[WeChatArticleListItem]:
-        return self.fetch_article_list_result(token_url, page_start, page_end, since_days).items
+        return self.fetch_article_list_result(
+            token_url,
+            page_start,
+            page_end,
+            since_days,
+            date_from=date_from,
+            date_to=date_to,
+        ).items
 
     def fetch_article_list_result(
         self,
@@ -143,6 +170,8 @@ class WeChatFuncs(BaseSpider):
         page_start: int,
         page_end: int | None = None,
         since_days: int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> WeChatArticleListResult:
         token = self.parse_token_link(token_url)
         if not token:
@@ -153,9 +182,11 @@ class WeChatFuncs(BaseSpider):
 
         page_end = page_start if page_end is None else page_end
         items: list[WeChatArticleListItem] = []
-        cutoff = None
-        if since_days is not None and since_days > 0:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+        range_start = self._parse_date_boundary(date_from)
+        range_end = self._parse_date_boundary(date_to, end_of_day=True)
+        cutoff = None if range_start or range_end else (
+            datetime.now(timezone.utc) - timedelta(days=since_days) if since_days is not None and since_days > 0 else None
+        )
 
         shanghai_tz = ZoneInfo("Asia/Shanghai")
         stop_early = False
@@ -207,6 +238,11 @@ class WeChatFuncs(BaseSpider):
                     if cutoff and publish_at < cutoff:
                         stop_early = True
                         break
+                    if range_end and publish_at > range_end:
+                        continue
+                    if range_start and publish_at < range_start:
+                        stop_early = True
+                        break
 
                     article_url = base.get("content_url", "").replace("#wechat_redirect", "")
                     if article_url:
@@ -226,7 +262,11 @@ class WeChatFuncs(BaseSpider):
                     for sub in base.get("multi_app_msg_item_list", []) or []:
                         sub_url = sub.get("content_url", "").replace("#wechat_redirect", "")
                         if not sub_url:
-                            continue
+                            if range_end and publish_at > range_end:
+                                continue
+                            if range_start and publish_at < range_start:
+                                stop_early = True
+                                break
                         raw_url = sub_url.replace("amp;", "")
                         items.append(
                             WeChatArticleListItem(
