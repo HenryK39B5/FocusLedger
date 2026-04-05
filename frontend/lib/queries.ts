@@ -336,6 +336,13 @@ export function useMutations() {
         await queryClient.invalidateQueries({ queryKey: ["articles"] });
       },
     }),
+    importArticleLinks: useMutation({
+      mutationFn: (urls: string[]) => api.importArticleLinks(urls),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: ["articles"] });
+        await queryClient.invalidateQueries({ queryKey: ["sources"] });
+      },
+    }),
     batchDeleteArticles: useMutation({
       mutationFn: (articleIds: string[]) => api.batchDeleteArticles(articleIds),
       onSuccess: async () => {

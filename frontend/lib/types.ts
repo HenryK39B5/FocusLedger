@@ -281,6 +281,27 @@ export type ArticleBatchAnalyzeResult = {
   failed_ids: string[];
 };
 
+export type ArticleImportItem = {
+  input_url: string;
+  normalized_url?: string | null;
+  status: string;
+  message: string;
+  article_id?: string | null;
+  article_title?: string | null;
+  source_id?: string | null;
+  source_name?: string | null;
+  source_created: boolean;
+};
+
+export type ArticleImportResult = {
+  total: number;
+  imported_count: number;
+  updated_count: number;
+  failed_count: number;
+  source_created_count: number;
+  items: ArticleImportItem[];
+};
+
 export type WechatHomeLinkResolveResult = {
   article_url: string;
   article_title?: string | null;

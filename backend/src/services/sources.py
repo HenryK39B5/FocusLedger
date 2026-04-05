@@ -82,19 +82,21 @@ class SourceService:
             tags=_normalize_tags(data.get("tags")),
             description=(data.get("description") or "").strip() or None,
             enabled=bool(data.get("enabled", True)),
-            credential_status="unknown",
+            credential_status="missing" if not (data.get("credential_link") or "").strip() else "unknown",
             source_identifier=None,
         )
         db.add(source)
         db.flush()
 
-        SourceCredentialService(settings).upsert_manual_credential(
-            db,
-            source,
-            data["credential_link"],
-            validate_after_update=False,
-        )
-        db.flush()
+        credential_link = (data.get("credential_link") or "").strip()
+        if credential_link:
+            SourceCredentialService(settings).upsert_manual_credential(
+                db,
+                source,
+                credential_link,
+                validate_after_update=False,
+            )
+            db.flush()
         return source
 
     def update_source(self, db: Session, source: ArticleSource, payload: ArticleSourceUpdate) -> ArticleSource:

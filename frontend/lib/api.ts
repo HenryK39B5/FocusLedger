@@ -3,6 +3,7 @@ import type {
   ArticleBatchAnalyzeResult,
   ArticleBatchDeleteResult,
   ArticleDeleteResult,
+  ArticleImportResult,
   ArticleList,
   ArticleSource,
   ArticleSourceDeleteResult,
@@ -198,6 +199,11 @@ export const api = {
         max_items: payload.maxItems ?? 100,
         target: payload.target ?? "pending",
       }),
+    }),
+  importArticleLinks: (urls: string[]) =>
+    apiFetch<ArticleImportResult>("/api/v1/articles/import-links", {
+      method: "POST",
+      body: JSON.stringify({ urls }),
     }),
   sources: () => apiFetch<ArticleSource[]>("/api/v1/sources"),
   createSource: (payload: Record<string, unknown>) =>

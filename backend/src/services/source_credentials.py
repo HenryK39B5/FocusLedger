@@ -127,7 +127,7 @@ class SourceCredentialService:
         now = datetime.now(timezone.utc)
 
         if not source.credential:
-            source.credential_status = "invalid"
+            source.credential_status = "missing"
             source.last_verified_at = now
             source.last_sync_failed_at = now
             source.last_error_code = "missing_credential"

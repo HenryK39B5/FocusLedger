@@ -39,6 +39,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/sources/add", label: "添加来源", icon: FolderPlus, exact: true },
       { href: "/sources", label: "来源管理", icon: FolderKanban },
       { href: "/collect", label: "文章获取", icon: Rss },
+      { href: "/articles/import", label: "链接导入", icon: FolderPlus, exact: true },
     ],
   },
   {

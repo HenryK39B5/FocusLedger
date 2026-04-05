@@ -188,10 +188,15 @@ export default function ArticlesPage() {
       title="文章浏览"
       subtitle="搜索、筛选、收藏与批量整理文章库。"
       actions={
-        <ActionButton variant="ghost" onClick={() => articles.refetch()}>
+        <>
+          <Link href="/articles/import">
+            <ActionButton variant="ghost">链接导入</ActionButton>
+          </Link>
+          <ActionButton variant="ghost" onClick={() => articles.refetch()}>
           <RefreshCw size={14} className="mr-2" />
           刷新
-        </ActionButton>
+          </ActionButton>
+        </>
       }
     >
       {actionMessage ? (

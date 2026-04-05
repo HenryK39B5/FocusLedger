@@ -43,6 +43,8 @@ export function credentialStatusLabel(status: string) {
   switch (status) {
     case "valid":
       return "可用";
+    case "missing":
+      return "未绑定凭据";
     case "refresh_required":
       return "需刷新凭据";
     case "invalid":

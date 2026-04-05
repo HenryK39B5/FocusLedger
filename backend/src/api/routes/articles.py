@@ -11,14 +11,32 @@ from src.schemas.content import (
     ArticleBatchDeletePayload,
     ArticleBatchDeleteRead,
     ArticleDeleteRead,
+    ArticleImportPayload,
+    ArticleImportResultRead,
     ArticleListRead,
     ArticleRead,
     ArticleUpdate,
 )
+from src.services.article_imports import ArticleImportService
 from src.services.articles import ArticleService
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 article_service = ArticleService()
+
+
+@router.post("/import-links", response_model=ArticleImportResultRead)
+def import_article_links(payload: ArticleImportPayload, db: Session = Depends(db_session)):
+    service = ArticleImportService(get_settings())
+    try:
+        result = service.import_urls(db, payload.urls)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"Article import failed: {exc}") from exc
+    db.commit()
+    return result
 
 
 @router.get("", response_model=ArticleListRead)

@@ -55,6 +55,8 @@ function sourceStatusTone(status: string) {
   switch (status) {
     case "valid":
       return "border-emerald-400/30 bg-emerald-500/10 text-emerald-100";
+    case "missing":
+      return "border-slate-300/20 bg-slate-400/10 text-slate-100";
     case "refresh_required":
       return "border-amber-400/30 bg-amber-500/10 text-amber-100";
     case "invalid":

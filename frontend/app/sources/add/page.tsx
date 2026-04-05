@@ -55,7 +55,7 @@ export default function AddSourcePage() {
     try {
       const result = await mutations.resolveWechatHome.mutateAsync(value);
       setResolveResult(result);
-      setResolveMessage(result.message ?? "公众号主页链接解析完成。");
+      setResolveMessage(result.message ?? "公众号主页信息解析完成。");
       if (result.source_name) {
         setSourceName((current) => current || result.source_name || "");
       }
@@ -67,7 +67,7 @@ export default function AddSourcePage() {
       }
     } catch (error) {
       setResolveResult(null);
-      setResolveMessage(error instanceof Error ? error.message : "公众号主页链接解析失败。");
+      setResolveMessage(error instanceof Error ? error.message : "解析公众号主页信息失败。");
     } finally {
       setResolveLoading(false);
     }
@@ -76,13 +76,13 @@ export default function AddSourcePage() {
   async function handleCreateSource() {
     setFormMessage("");
 
-    if (!sourceName.trim() || !sourceBiz.trim() || !credentialLink.trim()) {
-      setFormMessage("请填写来源名称、公众号 biz 和来源凭据链接。");
+    if (!sourceName.trim() || !sourceBiz.trim()) {
+      setFormMessage("请填写来源名称和公众号 biz。");
       return;
     }
 
-    if (!credentialLink.includes("profile_ext")) {
-      setFormMessage("这里需要粘贴完整的 profile_ext 链接。");
+    if (credentialLink.trim() && !credentialLink.includes("profile_ext")) {
+      setFormMessage("如果填写凭据，这里需要完整的 profile_ext 链接。");
       return;
     }
 
@@ -92,12 +92,16 @@ export default function AddSourcePage() {
         source_type: "wechat_public_account",
         biz: sourceBiz.trim(),
         public_home_link: publicHomeLink.trim() || null,
-        credential_link: credentialLink.trim(),
+        credential_link: credentialLink.trim() || null,
         source_group: normalizeGroupPath(sourceGroup) || null,
         tags: parseTags(sourceTags),
         description: sourceDescription.trim() || null,
       });
-      setFormMessage("来源已创建。现在可以去“文章获取”页面执行同步。");
+      setFormMessage(
+        credentialLink.trim()
+          ? "来源已创建。现在可以去“文章获取”页面执行同步。"
+          : "来源已创建。当前未绑定凭据，后续需要同步历史文章时再手动补充即可。",
+      );
       setCredentialLink("");
     } catch (error) {
       setFormMessage(error instanceof Error ? error.message : "创建来源失败。");
@@ -115,11 +119,14 @@ export default function AddSourcePage() {
   return (
     <PageFrame
       title="添加公众号来源"
-      subtitle="先从任意一篇真实公众号文章解析公众号身份，再绑定一条有效的 profile_ext 凭据，完成来源创建。"
+      subtitle="可以先从任意一篇公众号文章解析主页信息，也可以直接手动填写。来源支持先创建、后补凭据。"
       actions={
         <>
           <Link href="/sources">
             <ActionButton variant="ghost">返回来源管理</ActionButton>
+          </Link>
+          <Link href="/articles/import">
+            <ActionButton variant="ghost">链接导入</ActionButton>
           </Link>
           <Link href="/collect">
             <ActionButton variant="ghost">前往文章获取</ActionButton>
@@ -130,8 +137,8 @@ export default function AddSourcePage() {
       <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
           <SectionTitle
-            title="第一步：解析公众号身份"
-            subtitle="输入任意一篇真实公众号文章链接，提取公众号 biz 和主页链接。"
+            title="第一步：解析公众号主页信息"
+            subtitle="输入任意一篇真实公众号文章链接，提取来源名称、biz 和公众号主页链接。"
           />
           <div className="space-y-4">
             <div>
@@ -145,7 +152,7 @@ export default function AddSourcePage() {
             <div className="flex flex-wrap gap-3">
               <ActionButton variant="solid" onClick={handleResolveHome} disabled={resolveLoading}>
                 <ClipboardCopy size={14} className="mr-2" />
-                {resolveLoading ? "解析中..." : "解析主页链接"}
+                {resolveLoading ? "解析中..." : "解析主页信息"}
               </ActionButton>
               <ActionButton
                 variant="ghost"
@@ -185,7 +192,7 @@ export default function AddSourcePage() {
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
           <SectionTitle
             title="第二步：创建来源"
-            subtitle="把一条有效的 profile_ext 凭据绑定到这个公众号来源中。"
+            subtitle="凭据现在不是必填项。只做文章归档时可以先留空，需要同步历史文章时再补。"
           />
           <div className="space-y-4">
             <div>
@@ -205,7 +212,7 @@ export default function AddSourcePage() {
               />
             </div>
             <div>
-              <Label>来源凭据链接</Label>
+              <Label>来源凭据链接（可留空）</Label>
               <Textarea
                 value={credentialLink}
                 onChange={(event) => setCredentialLink(event.target.value)}
@@ -219,7 +226,7 @@ export default function AddSourcePage() {
               </div>
               <div>
                 <Label>标签</Label>
-                <Input value={sourceTags} onChange={(event) => setSourceTags(event.target.value)} placeholder="例如：宏观, 深度, 财经" />
+                <Input value={sourceTags} onChange={(event) => setSourceTags(event.target.value)} placeholder="例如：宏观，深度，财经" />
               </div>
             </div>
             <div>

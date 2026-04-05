@@ -13,7 +13,7 @@ class ArticleSourceCreate(SchemaBase):
     source_type: str = "wechat_public_account"
     biz: str
     public_home_link: str | None = None
-    credential_link: str
+    credential_link: str | None = None
     source_group: str | None = None
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
@@ -187,6 +187,31 @@ class ArticleBatchAnalyzeQueryPayload(SchemaBase):
     tags: list[str] = Field(default_factory=list)
     max_items: int = 100
     target: str = "pending"
+
+
+class ArticleImportPayload(SchemaBase):
+    urls: list[str] = Field(default_factory=list)
+
+
+class ArticleImportItemRead(SchemaBase):
+    input_url: str
+    normalized_url: str | None = None
+    status: str
+    message: str
+    article_id: str | None = None
+    article_title: str | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    source_created: bool = False
+
+
+class ArticleImportResultRead(SchemaBase):
+    total: int
+    imported_count: int
+    updated_count: int
+    failed_count: int
+    source_created_count: int
+    items: list[ArticleImportItemRead] = Field(default_factory=list)
 
 
 class NotebookCreate(SchemaBase):
