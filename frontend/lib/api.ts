@@ -14,33 +14,16 @@ import type {
   NotebookChatResponse,
   NotebookDeleteResult,
   NotebookList,
-  NotebookPodcastScript,
   NotebookPodcastAudioJob,
+  NotebookPodcastScript,
   NotebookPodcastScriptDeleteResult,
   NotebookPodcastScriptList,
   SourceBatchAnalyzeResult,
   SourceCredentialCheckResult,
   WechatHomeLinkResolveResult,
-  DailyReport,
 } from "@/lib/types";
 
-function resolveApiBase() {
-  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  if (configured) {
-    return configured.replace(/\/$/, "");
-  }
-
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "127.0.0.1" || hostname === "localhost") {
-      return `${protocol}//${hostname}:8100`;
-    }
-  }
-
-  return "http://127.0.0.1:8100";
-}
-
-const API_BASE = resolveApiBase();
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -170,10 +153,7 @@ export const api = {
         rate: options?.rate ?? "-8%",
       }),
     }),
-  updateArticle: (
-    id: string,
-    payload: { tags?: string[]; is_favorited?: boolean },
-  ) =>
+  updateArticle: (id: string, payload: { tags?: string[]; is_favorited?: boolean }) =>
     apiFetch<Article>(`/api/v1/articles/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -295,12 +275,4 @@ export const api = {
   ingestionJob: (jobId: string) => apiFetch<IngestionJob>(`/api/v1/ingestion-jobs/${jobId}`),
   status: () => apiFetch<Record<string, unknown>>("/api/v1/system/status"),
   articleTagTaxonomy: () => apiFetch<{ tags: string[] }>("/api/v1/system/taxonomies/article-tags"),
-  dailyReport: (options?: { date?: string; sourceId?: string; sourceGroup?: string; limit?: number }) => {
-    const params = new URLSearchParams();
-    if (options?.date) params.set("date", options.date);
-    if (options?.sourceId) params.set("source_id", options.sourceId);
-    if (options?.sourceGroup) params.set("source_group", options.sourceGroup);
-    params.set("limit", String(options?.limit ?? 20));
-    return apiFetch<DailyReport>(`/api/v1/reports/daily?${params.toString()}`);
-  },
 };

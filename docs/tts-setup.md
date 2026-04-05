@@ -1,22 +1,32 @@
-# TTS Worker Setup (edge-tts)
+# TTS Worker Setup
 
 ## Goal
 
-This stack provides TTS (text-to-speech) for FocusLedger's podcast audio feature:
+This stack provides TTS for FocusLedger's podcast audio feature:
 
 - FocusLedger generates podcast scripts
 - `tts-worker` turns scripts into TTS jobs
-- edge-tts (Microsoft Neural TTS) provides the audio synthesis
-- Audio files (MP3) are written to `data/audio/`
+- edge-tts or Tencent TTS performs synthesis
+- Audio files are written to `data/audio/`
 
-FocusLedger does not call edge-tts directly. The worker layer is the integration boundary.
+FocusLedger does not call TTS providers directly. The worker layer is the integration boundary.
 
-## Requirements
+## Python Environment
 
-- Python (Anaconda): `D:\anaconda3\python.exe`
-- `edge-tts` package: `pip install edge-tts -i https://pypi.tuna.tsinghua.edu.cn/simple`
+The project standard is:
 
-The TTS worker is started manually when needed.
+- `backend\.venv\Scripts\python.exe`
+
+Do not mix this worker with:
+
+- `D:\anaconda3\python.exe`
+- another global `python`
+
+## Install Worker Dependencies
+
+```powershell
+.\backend\.venv\Scripts\python.exe -m pip install -r .\tools\tts-worker\requirements.txt
+```
 
 ## Manual Start / Stop
 
@@ -30,26 +40,46 @@ powershell -ExecutionPolicy Bypass -File .\scripts\tts-stop.ps1
 
 ## Health Check
 
-```
+```text
 http://localhost:8010/health
 ```
 
 ## Worker Endpoints
 
 - `GET /health`
-- `POST /synthesize`
 - `POST /jobs`
 - `GET /jobs`
 - `GET /jobs/{job_id}`
 
 ## Voice Configuration
 
-Default voice: `zh-CN-XiaoxiaoNeural` (Mandarin Chinese, female)
+Default Edge voice:
 
-Other good Chinese voices:
-- `zh-CN-YunyangNeural` (male, news style)
-- `zh-CN-YunxiNeural` (male, natural)
+- `zh-CN-XiaoxiaoNeural`
 
-## Output
+Other common Edge voices:
 
-Audio files are saved as MP3 to `data/audio/`.
+- `zh-CN-YunyangNeural`
+- `zh-CN-YunxiNeural`
+
+Tencent TTS requires:
+
+- `TENCENT_PODCAST_APP_ID`
+- `TENCENT_PODCAST_SECRET_ID`
+- `TENCENT_PODCAST_SECRET_KEY`
+
+## Proxy Notes
+
+If your environment requires Clash or another local proxy for Edge TTS, configure:
+
+```env
+TTS_DISABLE_PROXY=false
+TTS_HTTP_PROXY=http://127.0.0.1:7890
+TTS_HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+If you explicitly want the worker to ignore proxy variables:
+
+```env
+TTS_DISABLE_PROXY=true
+```

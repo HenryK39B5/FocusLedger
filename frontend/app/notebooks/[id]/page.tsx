@@ -414,7 +414,7 @@ export default function NotebookDetailPage() {
                     <h3 className="text-sm font-semibold">生成配置</h3>
                   </div>
 
-                  <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-[minmax(220px,0.9fr)_minmax(180px,0.55fr)_minmax(280px,1.4fr)_minmax(220px,0.95fr)]">
+                  <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(220px,0.9fr)_minmax(180px,0.55fr)_minmax(0,1.4fr)_180px]">
                     <div>
                       <label className="mb-2 block text-sm text-white/72">脚本格式</label>
                       <select

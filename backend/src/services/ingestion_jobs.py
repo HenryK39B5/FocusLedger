@@ -157,10 +157,6 @@ class IngestionJobService:
             adapter = WeChatIngestionAdapter(settings)
 
             def progress_callback(event: dict[str, Any]) -> None:
-                if settings.database_url.startswith("sqlite"):
-                    # SQLite allows only one writer at a time. During local single-file runs,
-                    # progress updates can contend with the ingestion transaction and abort the job.
-                    return
                 fields: dict[str, Any] = {}
                 if "stage" in event:
                     fields["current_stage"] = event["stage"]

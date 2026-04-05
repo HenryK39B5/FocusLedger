@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-export function useSources(options?: { refetchInterval?: number | false }) {
+export function useSources() {
   return useQuery({
     queryKey: ["sources"],
     queryFn: () => api.sources(),
-    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 
@@ -135,32 +134,6 @@ export function useArticleTagTaxonomy() {
   });
 }
 
-export function useDailyReport(options?: {
-  date?: string;
-  sourceId?: string;
-  sourceGroup?: string;
-  limit?: number;
-  enabled?: boolean;
-}) {
-  return useQuery({
-    queryKey: [
-      "daily-report",
-      options?.date ?? "",
-      options?.sourceId ?? "",
-      options?.sourceGroup ?? "",
-      options?.limit ?? 20,
-    ],
-    queryFn: () =>
-      api.dailyReport({
-        date: options?.date,
-        sourceId: options?.sourceId,
-        sourceGroup: options?.sourceGroup,
-        limit: options?.limit ?? 20,
-      }),
-    enabled: options?.enabled ?? Boolean(options?.date),
-  });
-}
-
 export function useMutations() {
   const queryClient = useQueryClient();
 
@@ -191,7 +164,15 @@ export function useMutations() {
       },
     }),
     updateSourceCredential: useMutation({
-      mutationFn: ({ sourceId, rawLink, validateAfterUpdate = true }: { sourceId: string; rawLink: string; validateAfterUpdate?: boolean }) =>
+      mutationFn: ({
+        sourceId,
+        rawLink,
+        validateAfterUpdate = true,
+      }: {
+        sourceId: string;
+        rawLink: string;
+        validateAfterUpdate?: boolean;
+      }) =>
         api.updateSourceCredential(sourceId, {
           raw_link: rawLink,
           validate_after_update: validateAfterUpdate,
@@ -381,8 +362,7 @@ export function useMutations() {
         sinceDays?: number | null;
         dateFrom?: string | null;
         dateTo?: string | null;
-      }) =>
-        api.createIngestionJob(payload),
+      }) => api.createIngestionJob(payload),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["ingestion-jobs"] });
         await queryClient.invalidateQueries({ queryKey: ["sources"] });

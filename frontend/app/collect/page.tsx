@@ -122,7 +122,7 @@ function isActiveJob(job?: IngestionJob | null) {
 }
 
 export default function CollectPage() {
-  const sources = useSources({ refetchInterval: 5000 });
+  const sources = useSources();
   const jobs = useIngestionJobs({ limit: 100, refetchInterval: 1500 });
   const mutations = useMutations();
 
@@ -134,8 +134,6 @@ export default function CollectPage() {
   const [credentialDrafts, setCredentialDrafts] = useState<Record<string, string>>({});
 
   const sourceRows = useMemo(() => sources.data ?? [], [sources.data]);
-  const sourceErrorMessage = sources.error instanceof Error ? sources.error.message : null;
-  const jobErrorMessage = jobs.error instanceof Error ? jobs.error.message : null;
   const latestJobMap = useMemo(() => {
     const map = new Map<string, IngestionJob>();
     for (const job of jobs.data?.items ?? []) {
@@ -296,12 +294,7 @@ export default function CollectPage() {
           </p>
         ) : null}
 
-        {sourceErrorMessage ? (
-          <EmptyState
-            title="后端连接失败"
-            description={`文章获取页暂时无法连接后端：${sourceErrorMessage}。请确认前端已指向 http://127.0.0.1:8100，并重启前端服务。`}
-          />
-        ) : !sourceRows.length ? (
+        {!sourceRows.length ? (
           <EmptyState title="暂无来源" description="先去“添加公众号来源”页面创建来源，再回来执行同步。" />
         ) : (
           <div className="grid gap-4">
@@ -329,11 +322,6 @@ export default function CollectPage() {
                         <div className="mt-3">
                           <TagPills items={source.tags} />
                         </div>
-                      ) : null}
-                      {jobErrorMessage ? (
-                        <p className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                          最近任务状态拉取失败：{jobErrorMessage}
-                        </p>
                       ) : null}
                       <div className="mt-4 grid gap-2 whitespace-pre-wrap break-all text-xs leading-5 text-white/45 md:grid-cols-2">
                         <p>最后验证：{formatDateTimeShanghai(source.last_verified_at)}</p>

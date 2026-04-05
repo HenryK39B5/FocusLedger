@@ -33,12 +33,7 @@ $psi.UseShellExecute = $false
 $psi.EnvironmentVariables["TTS_OUTPUT_DIR"] = $audioDir
 $psi.EnvironmentVariables["EDGE_TTS_VOICE"] = "zh-CN-XiaoxiaoNeural"
 $psi.EnvironmentVariables["TTS_MAX_CONCURRENT_JOBS"] = "2"
-$psi.EnvironmentVariables["HTTP_PROXY"] = ""
-$psi.EnvironmentVariables["HTTPS_PROXY"] = ""
-$psi.EnvironmentVariables["ALL_PROXY"] = ""
-$psi.EnvironmentVariables["http_proxy"] = ""
-$psi.EnvironmentVariables["https_proxy"] = ""
-$psi.EnvironmentVariables["all_proxy"] = ""
+$psi.EnvironmentVariables["TTS_DISABLE_PROXY"] = "false"
 
 $proc = [System.Diagnostics.Process]::Start($psi)
 Start-Sleep -Seconds 2

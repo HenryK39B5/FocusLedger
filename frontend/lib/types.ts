@@ -290,39 +290,3 @@ export type WechatHomeLinkResolveResult = {
   resolved: boolean;
   message?: string | null;
 };
-
-export type DailyReportSection = {
-  title: string;
-  summary?: string | null;
-  bullets: string[];
-  article_ids: string[];
-};
-
-export type DailyReportArticle = {
-  id: string;
-  title: string;
-  source_name: string;
-  source_group?: string | null;
-  source_tags: string[];
-  publish_time?: string | null;
-  summary?: string | null;
-  topic_tags: string[];
-  entity_tags: string[];
-  style_tags: string[];
-  content_type?: string | null;
-  importance_score: number;
-};
-
-export type DailyReport = {
-  date: string;
-  title: string;
-  overview?: string | null;
-  report_markdown: string;
-  follow_ups: string[];
-  sections: DailyReportSection[];
-  articles: DailyReportArticle[];
-  stats: Record<string, unknown>;
-  generated_at: string;
-  source_id?: string | null;
-  source_group?: string | null;
-};

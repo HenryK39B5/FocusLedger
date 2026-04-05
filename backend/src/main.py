@@ -9,8 +9,6 @@ from src.api.routes import (
     ingestion_jobs_router,
     ingestions_router,
     notebooks_router,
-    qclaw_router,
-    reports_router,
     sources_router,
     status_router,
     wechat_router,
@@ -38,8 +36,6 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix=settings.api_prefix)
     app.include_router(sources_router, prefix=settings.api_prefix)
     app.include_router(articles_router, prefix=settings.api_prefix)
-    app.include_router(reports_router, prefix=settings.api_prefix)
-    app.include_router(qclaw_router, prefix=settings.api_prefix)
     app.include_router(notebooks_router, prefix=settings.api_prefix)
     app.include_router(ingestion_jobs_router, prefix=settings.api_prefix)
     app.include_router(ingestions_router, prefix=settings.api_prefix)

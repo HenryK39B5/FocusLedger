@@ -77,14 +77,34 @@ def _load_env_files() -> None:
 
 
 def _clear_proxy_env() -> None:
-    # edge-tts uses aiohttp with trust_env=True upstream, so isolate this worker
-    # from any ambient proxy variables inherited from the shell or editor.
+    # Optional isolation mode. Disabled by default so edge-tts can use the
+    # user's normal proxy environment when needed.
     for key in PROXY_ENV_KEYS:
         os.environ.pop(key, None)
 
 
+def _apply_proxy_overrides() -> None:
+    http_proxy = os.getenv("TTS_HTTP_PROXY", "").strip()
+    https_proxy = os.getenv("TTS_HTTPS_PROXY", "").strip()
+    all_proxy = os.getenv("TTS_ALL_PROXY", "").strip()
+
+    if http_proxy:
+        os.environ["HTTP_PROXY"] = http_proxy
+        os.environ["http_proxy"] = http_proxy
+    if https_proxy:
+        os.environ["HTTPS_PROXY"] = https_proxy
+        os.environ["https_proxy"] = https_proxy
+    if all_proxy:
+        os.environ["ALL_PROXY"] = all_proxy
+        os.environ["all_proxy"] = all_proxy
+
+
 _load_env_files()
-_clear_proxy_env()
+TTS_DISABLE_PROXY = _env_flag("TTS_DISABLE_PROXY", False)
+if TTS_DISABLE_PROXY:
+    _clear_proxy_env()
+else:
+    _apply_proxy_overrides()
 
 EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural")
 TTS_OUTPUT_DIR = Path(os.getenv("TTS_OUTPUT_DIR", "./data/outputs")).resolve()
@@ -494,6 +514,9 @@ def health() -> dict[str, object]:
         ),
         "tencent_sdk_available": TENCENT_SDK_IMPORT_ERROR is None,
         "tencent_verify_ssl": TENCENT_PODCAST_VERIFY_SSL,
+        "tts_disable_proxy": TTS_DISABLE_PROXY,
+        "http_proxy": os.getenv("HTTP_PROXY") or os.getenv("http_proxy"),
+        "https_proxy": os.getenv("HTTPS_PROXY") or os.getenv("https_proxy"),
         "output_dir": str(TTS_OUTPUT_DIR),
         "queued_jobs": queued,
         "running_jobs": running,
