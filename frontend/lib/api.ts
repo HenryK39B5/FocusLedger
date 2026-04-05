@@ -14,8 +14,8 @@ import type {
   NotebookChatResponse,
   NotebookDeleteResult,
   NotebookList,
-  NotebookPodcastScript,
   NotebookPodcastAudioJob,
+  NotebookPodcastScript,
   NotebookPodcastScriptDeleteResult,
   NotebookPodcastScriptList,
   SourceBatchAnalyzeResult,
@@ -137,19 +137,23 @@ export const api = {
   createNotebookPodcastAudio: (
     notebookId: string,
     scriptId: string,
-    options?: { voice?: string; rate?: string },
+    options?: {
+      engine?: "edge" | "tencent";
+      voice?: string;
+      voiceMode?: "female" | "male" | "duet";
+      rate?: string;
+    },
   ) =>
     apiFetch<NotebookPodcastAudioJob>(`/api/v1/notebooks/${notebookId}/podcasts/${scriptId}/audio`, {
       method: "POST",
       body: JSON.stringify({
+        engine: options?.engine ?? "edge",
         voice: options?.voice ?? "zh-CN-XiaoxiaoNeural",
+        voice_mode: options?.voiceMode ?? null,
         rate: options?.rate ?? "-8%",
       }),
     }),
-  updateArticle: (
-    id: string,
-    payload: { tags?: string[]; is_favorited?: boolean },
-  ) =>
+  updateArticle: (id: string, payload: { tags?: string[]; is_favorited?: boolean }) =>
     apiFetch<Article>(`/api/v1/articles/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),

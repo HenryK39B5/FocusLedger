@@ -293,7 +293,9 @@ class NotebookPodcastScriptListRead(SchemaBase):
 
 
 class NotebookPodcastAudioCreate(SchemaBase):
+    engine: str = "edge"
     voice: str = "zh-CN-XiaoxiaoNeural"
+    voice_mode: str | None = None
     rate: str = "-8%"
 
 

@@ -16,4 +16,3 @@ class IDSchema(SchemaBase):
 class TimestampSchema(SchemaBase):
     created_at: datetime
     updated_at: datetime
-

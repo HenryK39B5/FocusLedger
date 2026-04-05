@@ -164,7 +164,15 @@ export function useMutations() {
       },
     }),
     updateSourceCredential: useMutation({
-      mutationFn: ({ sourceId, rawLink, validateAfterUpdate = true }: { sourceId: string; rawLink: string; validateAfterUpdate?: boolean }) =>
+      mutationFn: ({
+        sourceId,
+        rawLink,
+        validateAfterUpdate = true,
+      }: {
+        sourceId: string;
+        rawLink: string;
+        validateAfterUpdate?: boolean;
+      }) =>
         api.updateSourceCredential(sourceId, {
           raw_link: rawLink,
           validate_after_update: validateAfterUpdate,
@@ -286,7 +294,12 @@ export function useMutations() {
       }: {
         notebookId: string;
         scriptId: string;
-        options?: { voice?: string; rate?: string };
+        options?: {
+          engine?: "edge" | "tencent";
+          voice?: string;
+          voiceMode?: "female" | "male" | "duet";
+          rate?: string;
+        };
       }) => api.createNotebookPodcastAudio(notebookId, scriptId, options),
       onSuccess: async (_data, variables) => {
         await queryClient.invalidateQueries({ queryKey: ["notebook-podcasts", variables.notebookId] });
@@ -349,8 +362,7 @@ export function useMutations() {
         sinceDays?: number | null;
         dateFrom?: string | null;
         dateTo?: string | null;
-      }) =>
-        api.createIngestionJob(payload),
+      }) => api.createIngestionJob(payload),
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: ["ingestion-jobs"] });
         await queryClient.invalidateQueries({ queryKey: ["sources"] });

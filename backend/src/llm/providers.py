@@ -658,8 +658,6 @@ class OpenAICompatibleProvider:
 
     def embed_text(self, text: str) -> list[float]:
         return RuleBasedProvider(self.settings).embed_text(text)
-
-
 def build_provider(settings: Settings):
     if settings.llm_provider.lower() in {"openai", "openai_compatible"} and settings.openai_api_key:
         return OpenAICompatibleProvider(settings)

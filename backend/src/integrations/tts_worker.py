@@ -27,7 +27,9 @@ class TTSWorkerClient:
         text: str,
         filename_prefix: str,
         format: str = "mp3",
+        engine: str = "edge",
         voice: str | None = None,
+        voice_mode: str | None = None,
         rate: str = "-8%",
         extra_payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -35,11 +37,14 @@ class TTSWorkerClient:
             "text": text,
             "format": format,
             "filename_prefix": filename_prefix,
+            "engine": engine,
             "rate": rate,
             "extra_payload": extra_payload or {},
         }
         if voice:
             payload["voice"] = voice
+        if voice_mode:
+            payload["voice_mode"] = voice_mode
         try:
             with self._client() as client:
                 response = client.post(f"{self.base_url}/jobs", json=payload)
@@ -66,5 +71,7 @@ class TTSWorkerClient:
     def resolve_output_path(self, worker_output_path: str | None) -> str | None:
         if not worker_output_path:
             return None
-        filename = Path(worker_output_path).name
-        return str((self.audio_output_path / filename).resolve())
+        candidate = Path(worker_output_path).expanduser()
+        if candidate.is_absolute():
+            return str(candidate.resolve())
+        return str((self.audio_output_path / candidate.name).resolve())

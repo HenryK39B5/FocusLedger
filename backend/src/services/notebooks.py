@@ -262,6 +262,38 @@ class NotebookService:
         rendered = "\n\n".join(chunks).strip()
         return rendered or script.script_markdown.strip()
 
+    def _render_podcast_audio_dialogue(self, script: NotebookPodcastScript) -> str:
+        payload = script.script_json if isinstance(script.script_json, dict) else {}
+        speakers_raw = payload.get("speakers") if isinstance(payload.get("speakers"), list) else []
+        speaker_map: dict[str, str] = {}
+        for speaker in speakers_raw:
+            if not isinstance(speaker, dict):
+                continue
+            speaker_id = str(speaker.get("id") or "").strip()
+            if not speaker_id:
+                continue
+            speaker_name = str(speaker.get("display_name") or "").strip() or speaker_id
+            speaker_map[speaker_id] = speaker_name
+
+        sections_raw = payload.get("sections") if isinstance(payload.get("sections"), list) else []
+        lines: list[str] = []
+        for section in sections_raw:
+            if not isinstance(section, dict):
+                continue
+            turns = section.get("turns") if isinstance(section.get("turns"), list) else []
+            for turn in turns:
+                if not isinstance(turn, dict):
+                    continue
+                text = str(turn.get("text") or "").strip()
+                if not text:
+                    continue
+                speaker_id = str(turn.get("speaker_id") or "").strip()
+                speaker_name = speaker_map.get(speaker_id) or speaker_id or "A"
+                lines.append(f"{speaker_name}: {text}")
+
+        rendered = "\n".join(lines).strip()
+        return rendered or self._render_podcast_audio_text(script)
+
     def generate_podcast_script(
         self,
         db: Session,
@@ -361,16 +393,30 @@ class NotebookService:
         if not text:
             raise ValueError("podcast script is empty")
 
+        engine = ((options.engine if options else None) or "edge").strip().lower()
         voice = (options.voice if options else None) or "zh-CN-XiaoxiaoNeural"
+        voice_mode = ((options.voice_mode if options else None) or "duet").strip().lower()
         rate = (options.rate if options else None) or "-8%"
+        extra_payload: dict[str, object] = {}
+
+        if engine == "tencent":
+            extra_payload["voice_mode"] = voice_mode
+            if voice_mode == "duet":
+                text = self._render_podcast_audio_dialogue(script)
+                extra_payload["dialogue_text"] = text
+        elif engine != "edge":
+            raise ValueError("unsupported TTS engine")
 
         client = TTSWorkerClient(settings)
         job = client.create_job(
             text=text,
             filename_prefix=f"podcast-{script.id[:8]}",
             format="mp3",
-            voice=voice,
+            engine=engine,
+            voice=voice if engine == "edge" else None,
+            voice_mode=voice_mode if engine == "tencent" else None,
             rate=rate,
+            extra_payload=extra_payload,
         )
 
         script.audio_status = str(job.get("status") or "queued")

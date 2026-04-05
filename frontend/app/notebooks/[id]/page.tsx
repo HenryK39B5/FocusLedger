@@ -23,6 +23,8 @@ const PODCAST_FORMATS = [
   { value: "commentary", label: "Commentary", description: "研究评论风格，强调判断、分歧和后续观察点。" },
 ];
 
+const TENCENT_VOICE_PREFIX = "tencent:";
+
 function podcastFormatLabel(value: string) {
   const matched = PODCAST_FORMATS.find((item) => item.value === value);
   return matched?.label ?? value;
@@ -41,6 +43,10 @@ function audioStatusLabel(value: string | null | undefined) {
     default:
       return "未生成";
   }
+}
+
+function isTencentVoiceOption(value: string) {
+  return value.startsWith(TENCENT_VOICE_PREFIX);
 }
 
 export default function NotebookDetailPage() {
@@ -258,10 +264,20 @@ export default function NotebookDetailPage() {
     if (!notebookId || !activePodcast) {
       return;
     }
+    const isTencent = isTencentVoiceOption(audioVoice);
     await mutations.createNotebookPodcastAudio.mutateAsync({
       notebookId,
       scriptId: activePodcast.id,
-      options: { voice: audioVoice, rate: audioRate },
+      options: isTencent
+        ? {
+            engine: "tencent",
+            voiceMode: audioVoice.slice(TENCENT_VOICE_PREFIX.length) as "female" | "male" | "duet",
+          }
+        : {
+            engine: "edge",
+            voice: audioVoice,
+            rate: audioRate,
+          },
     });
     await podcastAudio.refetch();
   }
@@ -516,10 +532,14 @@ export default function NotebookDetailPage() {
                                 <option value="zh-CN-XiaoxiaoNeural">小晓（女）</option>
                                 <option value="zh-CN-YunyangNeural">云扬（男·播报）</option>
                                 <option value="zh-CN-YunxiNeural">云希（男·自然）</option>
+                                <option value="tencent:female">腾讯TTS-女声</option>
+                                <option value="tencent:male">腾讯TTS-男声</option>
+                                <option value="tencent:duet">腾讯TTS-男女双人</option>
                               </select>
                               <select
                                 value={audioRate}
                                 onChange={(e) => setAudioRate(e.target.value)}
+                                disabled={isTencentVoiceOption(audioVoice)}
                                 className="rounded-lg border border-white/12 bg-white/6 px-3 py-1.5 text-xs text-white/80 outline-none"
                               >
                                 <option value="+0%">正常语速</option>
@@ -564,6 +584,9 @@ export default function NotebookDetailPage() {
                           </div>
                           {activeAudio?.audio_error ? (
                             <p className="mt-2 text-sm leading-6 text-rose-200/85">{activeAudio.audio_error}</p>
+                          ) : null}
+                          {isTencentVoiceOption(audioVoice) ? (
+                            <p className="mt-2 text-xs leading-5 text-white/36">腾讯 TTS 使用模块内默认语速配置，当前语速下拉仅对 Edge TTS 生效。</p>
                           ) : null}
                           {activeAudio?.audio_path ? (
                             <p className="mt-2 break-all font-mono text-xs leading-5 text-white/40">{activeAudio.audio_path}</p>
