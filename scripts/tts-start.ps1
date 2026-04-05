@@ -17,10 +17,15 @@ if ($existing) {
     Start-Sleep -Seconds 1
 }
 
-Write-Host "Starting TTS worker (edge-tts)..."
+$pythonPath = Join-Path $root "backend\.venv\Scripts\python.exe"
+if (-not (Test-Path $pythonPath)) {
+    $pythonPath = "python"
+}
+
+Write-Host "Starting TTS worker (edge-tts / tencent optional)..."
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName = "D:\anaconda3\python.exe"
+$psi.FileName = $pythonPath
 $psi.Arguments = "-m uvicorn app:app --host 0.0.0.0 --port 8010"
 $psi.WorkingDirectory = Join-Path $root "tools\tts-worker"
 $psi.CreateNoWindow = $true

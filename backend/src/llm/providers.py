@@ -259,6 +259,47 @@ class RuleBasedProvider:
             "analysis_mode": "rule_fallback",
         }
 
+    def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
+        date = context.get("date", "")
+        articles = context.get("articles", [])
+        groups = context.get("source_groups", [])
+        top_tags = context.get("top_topic_tags", [])
+        top_entities = context.get("top_entities", [])
+
+        overview_parts: list[str] = []
+        if articles:
+            overview_parts.append(f"当日共纳入 {len(articles)} 篇文章，覆盖 {len(groups)} 个来源分组。")
+        if top_tags:
+            overview_parts.append("高频主题包括 " + "、".join(f"{tag}({count})" for tag, count in top_tags[:5]) + "。")
+        if top_entities:
+            overview_parts.append("高频实体包括 " + "、".join(f"{name}({count})" for name, count in top_entities[:5]) + "。")
+        overview = " ".join(overview_parts) if overview_parts else "当日暂无可分析文章。"
+
+        sections: list[dict[str, Any]] = []
+        for group in groups[:5]:
+            bullets = []
+            for article in group.get("articles", [])[:3]:
+                summary = article.get("summary") or article.get("title") or ""
+                bullets.append(f"{article.get('source_name', '')}：{article.get('title', '')}。{_truncate(summary, 90)}")
+            sections.append(
+                {
+                    "title": group.get("group") or "未分组",
+                    "summary": f"{group.get('article_count', 0)} 篇文章，来自 {group.get('source_count', 0)} 个公众号。",
+                    "bullets": bullets,
+                    "article_ids": [article.get("id") for article in group.get("articles", [])[:5] if article.get("id")],
+                }
+            )
+
+        follow_ups = [f"继续跟踪 {tag} 的新增文章和后续变化。" for tag, _count in top_tags[:5]]
+        title = f"{date} 公众号日报" if date else "公众号日报"
+        return {
+            "title": title,
+            "overview": overview,
+            "sections": sections,
+            "follow_ups": follow_ups,
+            "report_markdown": _markdown_from_sections(title, overview, sections, follow_ups),
+        }
+
     def embed_text(self, text: str) -> list[float]:
         return _hash_embed(text, self.settings.embed_dimension)
 
@@ -658,6 +699,54 @@ class OpenAICompatibleProvider:
 
     def embed_text(self, text: str) -> list[float]:
         return RuleBasedProvider(self.settings).embed_text(text)
+
+    def generate_daily_report(self, context: dict[str, Any]) -> dict[str, Any]:
+        if not self.settings.openai_api_key:
+            return RuleBasedProvider(self.settings).generate_daily_report(context)
+
+        system = "你是一名严谨的中文财经日报编辑。必须只返回 JSON，不要输出代码块或额外说明。"
+        user = (
+            "请根据给定的公众号文章集合生成一份日报。"
+            "日报要综合利用来源分组、来源标签、文章摘要和文章主题标签。\n"
+            "输出 JSON：\n"
+            "{\n"
+            '  "title": "日报标题",\n'
+            '  "overview": "整体概览",\n'
+            '  "sections": [{"title": "...", "summary": "...", "bullets": ["..."], "article_ids": ["..."]}],\n'
+            '  "follow_ups": ["..."]\n'
+            "}\n"
+            "要求：sections 2 到 6 个；每个 section 2 到 5 个 bullet；article_ids 必须来自输入的 article.id。\n"
+            f"输入数据：\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+        )
+
+        try:
+            raw = self._chat_completion(system=system, user=user)
+            data = _extract_json_payload(raw)
+            sections = []
+            for section in data.get("sections", []) or []:
+                if not isinstance(section, dict):
+                    continue
+                sections.append(
+                    {
+                        "title": str(section.get("title") or "未命名分区").strip(),
+                        "summary": str(section.get("summary") or "").strip() or None,
+                        "bullets": _clean_list(section.get("bullets"), limit=5),
+                        "article_ids": _clean_list(section.get("article_ids"), limit=10),
+                    }
+                )
+            title = str(data.get("title") or f"{context.get('date', '')} 公众号日报").strip()
+            overview = str(data.get("overview") or "").strip()
+            follow_ups = _clean_list(data.get("follow_ups"), limit=5)
+            return {
+                "title": title,
+                "overview": overview,
+                "sections": sections,
+                "follow_ups": follow_ups,
+                "report_markdown": _markdown_from_sections(title, overview, sections, follow_ups),
+            }
+        except Exception as exc:  # pragma: no cover
+            logger.warning("LLM daily report failed, fallback to rule provider: %s", exc)
+            return RuleBasedProvider(self.settings).generate_daily_report(context)
 
 
 def build_provider(settings: Settings):

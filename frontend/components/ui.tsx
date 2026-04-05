@@ -7,6 +7,7 @@ import {
   FolderKanban,
   FolderPlus,
   NotebookPen,
+  ScrollText,
   Rss,
   Settings2,
 } from "lucide-react";
@@ -45,6 +46,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "研究",
     items: [
       { href: "/articles", label: "文章浏览", icon: BookOpen },
+      { href: "/reports", label: "日报生成", icon: ScrollText },
       { href: "/notebooks", label: "Notebooks", icon: NotebookPen },
     ],
   },

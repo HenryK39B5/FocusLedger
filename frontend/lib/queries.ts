@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-export function useSources() {
+export function useSources(options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: ["sources"],
     queryFn: () => api.sources(),
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 
@@ -131,6 +132,32 @@ export function useArticleTagTaxonomy() {
   return useQuery({
     queryKey: ["article-tag-taxonomy"],
     queryFn: () => api.articleTagTaxonomy(),
+  });
+}
+
+export function useDailyReport(options?: {
+  date?: string;
+  sourceId?: string;
+  sourceGroup?: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: [
+      "daily-report",
+      options?.date ?? "",
+      options?.sourceId ?? "",
+      options?.sourceGroup ?? "",
+      options?.limit ?? 20,
+    ],
+    queryFn: () =>
+      api.dailyReport({
+        date: options?.date,
+        sourceId: options?.sourceId,
+        sourceGroup: options?.sourceGroup,
+        limit: options?.limit ?? 20,
+      }),
+    enabled: options?.enabled ?? Boolean(options?.date),
   });
 }
 
@@ -286,7 +313,12 @@ export function useMutations() {
       }: {
         notebookId: string;
         scriptId: string;
-        options?: { voice?: string; rate?: string };
+        options?: {
+          engine?: "edge" | "tencent";
+          voice?: string;
+          voiceMode?: "female" | "male" | "duet";
+          rate?: string;
+        };
       }) => api.createNotebookPodcastAudio(notebookId, scriptId, options),
       onSuccess: async (_data, variables) => {
         await queryClient.invalidateQueries({ queryKey: ["notebook-podcasts", variables.notebookId] });

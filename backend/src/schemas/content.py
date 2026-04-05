@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -293,7 +293,9 @@ class NotebookPodcastScriptListRead(SchemaBase):
 
 
 class NotebookPodcastAudioCreate(SchemaBase):
+    engine: Literal["edge", "tencent"] = "edge"
     voice: str = "zh-CN-XiaoxiaoNeural"
+    voice_mode: Literal["female", "male", "duet"] | None = None
     rate: str = "-8%"
 
 
