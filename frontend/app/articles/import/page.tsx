@@ -110,7 +110,7 @@ export default function ArticleImportPage() {
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
           <SectionTitle
             title="导入结果"
-            subtitle="这里展示每篇链接的处理状态、落库文章和自动创建的来源。后续 QClaw skill 会复用这条链路。"
+            subtitle="这里展示每篇链接的处理状态、落库文章和自动创建的来源。后续 agent skill 会复用这条链路。"
           />
           {!result?.items.length ? (
             <EmptyState

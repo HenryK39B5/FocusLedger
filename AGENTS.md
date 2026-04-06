@@ -1,6 +1,6 @@
 # FocusLedger — AI Agent 协作文档
 
-> 本文档供 AI 编程助手（Claude Code、Codex CLI 等）阅读，用于理解项目背景、当前边界与协作规范。
+> 本文档供 AI 编程助手阅读，用于理解项目背景、当前边界与协作规范。
 
 ---
 
@@ -11,8 +11,9 @@ FocusLedger 是一个运行在本地的微信公众号文章研究平台。
 核心价值不在于“自动抓取最新文章”，而在于：
 
 - 管理公众号来源与凭据同步流程
-- 建立本地文章库（搜索、标签、收藏、LLM 总结）
-- 提供 Notebook 工作区（AI 对话 + 播客脚本 + 音频生成）
+- 建立本地文章库，支持搜索、收藏、标签与 LLM 总结
+- 提供 Notebook 工作区，支持 AI 对话、播客脚本与音频生成
+- 向外部 AI agent 暴露一组稳定、任务型的协作接口
 
 ---
 
@@ -29,12 +30,12 @@ FocusLedger 是一个运行在本地的微信公众号文章研究平台。
 
 - 框架：FastAPI，SQLAlchemy（async），Alembic
 - 目录：`backend/src/`
-- 分层：`api/routes/` → `services/` → `models/` / `integrations/`
+- 分层：`api/routes/` -> `services/` -> `models/` / `integrations/`
 - LLM：`backend/src/llm/providers.py`
 
 ### TTS Worker
 
-- 实现：`tools/tts-worker/app.py`，FastAPI + edge-tts / Tencent TTS
+- 实现：`tools/tts-worker/app.py`
 - 端口：`:8010`
 - 运行方式：本地 Python 进程，不走 Docker
 - 启动：按需手动执行 `scripts/tts-start.ps1`
@@ -50,7 +51,7 @@ FocusLedger 是一个运行在本地的微信公众号文章研究平台。
 - `D:\anaconda3\python.exe`
 - 系统全局 `python`
 
-如果在 VS Code 中工作，当前工作区的 interpreter 也应设置为：
+如果在 VS Code 中工作，当前工作区 interpreter 也应设置为：
 
 - `E:\Desktop\FocusLedger\backend\.venv\Scripts\python.exe`
 
@@ -68,8 +69,8 @@ FocusLedger 是一个运行在本地的微信公众号文章研究平台。
 
 - 来源创建与 `__biz` 解析
 - `profile_ext` 凭据保存与状态检测
-- 凭据手动更新（用户在 `/collect` 页面操作）
-- 后台文章同步任务（去重 + 正文入库）
+- 凭据手动更新，用户在 `/collect` 页面操作
+- 后台文章同步任务，完成去重与正文入库
 
 ### 3.2 已放弃的路径
 
@@ -87,12 +88,20 @@ FocusLedger 是一个运行在本地的微信公众号文章研究平台。
 - 新建 / 重命名 / emoji / 说明
 - 文章加入与移出
 - 单工作区单会话 AI 对话
-- 播客脚本生成（Brief / Explainer / Commentary）
-- 播客音频生成（edge-tts / Tencent TTS）
+- 播客脚本生成：`Brief` / `Explainer` / `Commentary`
+- 播客音频生成：`edge-tts` / `Tencent TTS`
+
+### 3.4 Agent 当前支持
+
+- 通过 `/api/v1/integrations/agent` 暴露任务型接口
+- 支持文章链接导入、文章搜索、标签整理、批量总结
+- 支持 Notebook 创建 / 更新 / 查询 / 加入文章
+- 支持基于 Notebook 的问答、播客脚本生成、脚本查询、音频生成与状态查询
+- 仓库内置 skill：`agent-skills/focusledger-notebooklm/`
 
 ---
 
-## 4. taxonomy 体系
+## 4. Taxonomy 体系
 
 三份本地文档约束 LLM 的分类输出：
 
@@ -117,6 +126,7 @@ backend/alembic/versions/       数据库迁移文件
 frontend/app/                   Next.js 页面
 frontend/components/ui.tsx      全局 UI 组件
 frontend/lib/                   API / 类型 / React Query hooks
+agent-skills/                   通用 agent skill 定义与本地脚本
 tools/tts-worker/app.py         TTS 服务主文件
 scripts/                        启动 / 停止脚本
 docs/taxonomies/                taxonomy 文档
@@ -131,15 +141,17 @@ docs/taxonomies/                taxonomy 文档
 以下任何链路受影响，合并前必须手动验证：
 
 1. 文章同步主链路
-2. 文章 LLM 总结链路（单篇 + 批量）
+2. 文章 LLM 总结链路，包含单篇与批量
 3. Notebook AI 对话链路
 4. 播客脚本生成链路
 5. 播客音频生成链路
+6. Agent 集成链路
 
 最低验证标准：
 
 - 前端可启动
 - `/articles`、`/sources`、`/collect`、`/notebooks` 可正常访问
+- `/api/v1/integrations/agent/*` 至少完成最小 smoke test
 
 ### 数据库迁移
 
@@ -151,6 +163,13 @@ docs/taxonomies/                taxonomy 文档
 - 所有页面使用 `PageFrame`
 - 共享 UI 在 `frontend/components/ui.tsx` 中维护
 - 颜色系统基于 CSS 变量，不硬编码散乱颜色
+
+### Agent 集成约定
+
+- 对外暴露任务型接口，不暴露底层杂乱 CRUD
+- 命名统一使用 `agent` 语义，不绑定单一外部工具名称
+- skill 文档必须明确工作流依赖关系，尤其是播客脚本 -> 音频的顺序
+- 文档中避免把某一个具体 agent 工具写成项目主线的一部分
 
 ### TTS Worker
 
@@ -176,6 +195,7 @@ TTS_AUDIO_OUTPUT_PATH=data/audio
 TTS_DISABLE_PROXY=false
 TTS_HTTP_PROXY=http://127.0.0.1:7890
 TTS_HTTPS_PROXY=http://127.0.0.1:7890
+AGENT_INTEGRATION_KEY=
 ```
 
 ---

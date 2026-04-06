@@ -1,0 +1,6 @@
+{
+  "name": "focusledger-notebooklm",
+  "version": "0.1.0",
+  "description": "Local agent skill for operating the FocusLedger article library and notebook workspace.",
+  "entry": "SKILL.md"
+}

@@ -1,3 +1,4 @@
+from src.api.routes.agent import router as agent_router
 from src.api.routes.articles import router as articles_router
 from src.api.routes.health import router as health_router
 from src.api.routes.ingestion_jobs import router as ingestion_jobs_router
